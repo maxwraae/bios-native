@@ -13,7 +13,12 @@
 mod args;
 mod commands;
 pub mod editor;
-// Read mapping: not in this build of Bios yet; its commands say so.
+// Read mapping: Bios's own read mapper behind the `mapper` feature, and without it a stand-in
+// whose commands say read mapping is not in this build.
+#[cfg(feature = "mapper")]
+pub mod mapping;
+#[cfg(not(feature = "mapper"))]
+#[path = "no_mapping.rs"]
 pub mod mapping;
 mod refs;
 pub mod update;

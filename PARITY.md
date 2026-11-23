@@ -138,7 +138,8 @@ of deduplicated pieces to order. Everything goes through the engine, so an agent
 
 ### Verify (the whole place)
 
-Drop a run, place its samples on maps, align them on this machine (read mapping is not in this build of Bios yet), read the consensus differences, call
+Drop a run, place its samples on maps, align them on this machine with `bios-mapper` (the web's
+mapper ported to Rust, byte-identical on A1, A7 and IUPAC), read the consensus differences, call
 each file, copy the picks. Every action is an engine command (`create_verification` …
 `export_alignment`, beside `map_reads`); the window drives them. Checked by looking on a real
 paired, multi-member-gzip plate (8 wells, 2 maps) against the web's front door and board.

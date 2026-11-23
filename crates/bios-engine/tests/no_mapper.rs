@@ -1,4 +1,5 @@
 //! A build of Bios without a read mapper: the read-mapping commands are still there and say so.
+#![cfg(not(feature = "mapper"))]
 
 use std::path::Path;
 

@@ -454,6 +454,7 @@ name = "bios-engine"
 version = "0.1.0"
 dependencies = [
  "bios-core",
+ "bios-mapper",
  "bios-project",
  "bios-sync",
  "chrono",
@@ -469,6 +470,14 @@ name = "bios-layout"
 version = "0.1.0"
 dependencies = [
  "bios-core",
+]
+
+[[package]]
+name = "bios-mapper"
+version = "0.1.0"
+dependencies = [
+ "bios-core",
+ "flate2",
 ]
 
 [[package]]

@@ -11,6 +11,7 @@ rust-version = "1.95"
 [workspace.dependencies]
 bios-core = { path = "crates/bios-core" }
 bios-layout = { path = "crates/bios-layout" }
+bios-mapper = { path = "crates/bios-mapper" }
 bios-mcp = { path = "crates/bios-mcp" }
 bios-engine = { path = "crates/bios-engine" }
 bios-project = { path = "crates/bios-project" }

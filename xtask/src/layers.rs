@@ -12,6 +12,7 @@ use craft_xtask::runner;
 const LAYERS: &[(&str, u8)] = &[
     ("bios-core", 0),
     ("bios-layout", 1),
+    ("bios-mapper", 1),
     ("bios-project", 2),
     ("bios-sync", 3),
     ("bios-engine", 4),

@@ -1,0 +1,16 @@
+[package]
+name = "bios-mapper"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Gzip FASTQ, multi-member included (MIT OR Apache-2.0; already in the lock through other crates).
+flate2 = "1"
+
+[dev-dependencies]
+bios-core = { workspace = true }

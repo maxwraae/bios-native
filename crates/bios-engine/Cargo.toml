@@ -8,8 +8,15 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = ["mapper"]
+# Bios's own read mapper. Without it the read-mapping commands are still there and say that read
+# mapping is not in this build.
+mapper = ["dep:bios-mapper"]
+
 [dependencies]
 bios-core = { workspace = true }
+bios-mapper = { workspace = true, optional = true }
 bios-project = { workspace = true }
 bios-sync = { workspace = true }
 chrono = { workspace = true }
