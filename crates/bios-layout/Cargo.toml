@@ -1,0 +1,12 @@
+[package]
+name = "bios-layout"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+bios-core = { workspace = true }

@@ -1,0 +1,34 @@
+[package]
+name = "bios"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+craft-window = { workspace = true }
+bios-core = { workspace = true }
+bios-engine = { workspace = true }
+bios-layout = { workspace = true }
+bios-project = { workspace = true }
+bios-sync = { workspace = true }
+bios-ui = { workspace = true }
+bios-update = { workspace = true }
+chrono = { workspace = true }
+craft-dialogs = { workspace = true }
+craft-keymap = { workspace = true }
+craft-menu = { workspace = true }
+craft-settings = { workspace = true }
+# The update prompt and the result of Help > Check for Updates.
+craft-update = { workspace = true, features = ["egui"] }
+egui = { workspace = true }
+eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit", "clipboard", "links"] }
+png = "0.17"
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

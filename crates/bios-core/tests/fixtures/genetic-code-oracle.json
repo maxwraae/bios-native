@@ -1,0 +1,1138 @@
+{
+  "oracle": "Biopython",
+  "version": "1.87",
+  "tables": [
+    {
+      "id": 1,
+      "ordinary": "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "TTG",
+        "CTG",
+        "ATG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG",
+        "TGA"
+      ]
+    },
+    {
+      "id": 2,
+      "ordinary": "FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSS**VVVVAAAADDEEGGGG",
+      "starts": [
+        "ATT",
+        "ATC",
+        "ATA",
+        "ATG",
+        "GTG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG",
+        "AGA",
+        "AGG"
+      ]
+    },
+    {
+      "id": 3,
+      "ordinary": "FFLLSSSSYY**CCWWTTTTPPPPHHQQRRRRIIMMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATA",
+        "ATG",
+        "GTG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG"
+      ]
+    },
+    {
+      "id": 4,
+      "ordinary": "FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "TTA",
+        "TTG",
+        "CTG",
+        "ATT",
+        "ATC",
+        "ATA",
+        "ATG",
+        "GTG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG"
+      ]
+    },
+    {
+      "id": 5,
+      "ordinary": "FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSSSVVVVAAAADDEEGGGG",
+      "starts": [
+        "TTG",
+        "ATT",
+        "ATC",
+        "ATA",
+        "ATG",
+        "GTG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG"
+      ]
+    },
+    {
+      "id": 6,
+      "ordinary": "FFLLSSSSYYQQCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATG"
+      ],
+      "stops": [
+        "TGA"
+      ]
+    },
+    {
+      "id": 9,
+      "ordinary": "FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATG",
+        "GTG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG"
+      ]
+    },
+    {
+      "id": 10,
+      "ordinary": "FFLLSSSSYY**CCCWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG"
+      ]
+    },
+    {
+      "id": 11,
+      "ordinary": "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "TTG",
+        "CTG",
+        "ATT",
+        "ATC",
+        "ATA",
+        "ATG",
+        "GTG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG",
+        "TGA"
+      ]
+    },
+    {
+      "id": 12,
+      "ordinary": "FFLLSSSSYY**CC*WLLLSPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "CTG",
+        "ATG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG",
+        "TGA"
+      ]
+    },
+    {
+      "id": 13,
+      "ordinary": "FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSGGVVVVAAAADDEEGGGG",
+      "starts": [
+        "TTG",
+        "ATA",
+        "ATG",
+        "GTG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG"
+      ]
+    },
+    {
+      "id": 14,
+      "ordinary": "FFLLSSSSYYY*CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATG"
+      ],
+      "stops": [
+        "TAG"
+      ]
+    },
+    {
+      "id": 15,
+      "ordinary": "FFLLSSSSYY*QCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATG"
+      ],
+      "stops": [
+        "TAA",
+        "TGA"
+      ]
+    },
+    {
+      "id": 16,
+      "ordinary": "FFLLSSSSYY*LCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATG"
+      ],
+      "stops": [
+        "TAA",
+        "TGA"
+      ]
+    },
+    {
+      "id": 21,
+      "ordinary": "FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNNKSSSSVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATG",
+        "GTG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG"
+      ]
+    },
+    {
+      "id": 22,
+      "ordinary": "FFLLSS*SYY*LCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATG"
+      ],
+      "stops": [
+        "TCA",
+        "TAA",
+        "TGA"
+      ]
+    },
+    {
+      "id": 23,
+      "ordinary": "FF*LSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATT",
+        "ATG",
+        "GTG"
+      ],
+      "stops": [
+        "TTA",
+        "TAA",
+        "TAG",
+        "TGA"
+      ]
+    },
+    {
+      "id": 24,
+      "ordinary": "FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSSKVVVVAAAADDEEGGGG",
+      "starts": [
+        "TTG",
+        "CTG",
+        "ATG",
+        "GTG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG"
+      ]
+    },
+    {
+      "id": 25,
+      "ordinary": "FFLLSSSSYY**CCGWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "TTG",
+        "ATG",
+        "GTG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG"
+      ]
+    },
+    {
+      "id": 26,
+      "ordinary": "FFLLSSSSYY**CC*WLLLAPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "CTG",
+        "ATG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG",
+        "TGA"
+      ]
+    },
+    {
+      "id": 27,
+      "ordinary": "FFLLSSSSYYQQCCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATG"
+      ],
+      "stops": [
+        "TGA"
+      ]
+    },
+    {
+      "id": 28,
+      "ordinary": "FFLLSSSSYYQQCCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG",
+        "TGA"
+      ]
+    },
+    {
+      "id": 29,
+      "ordinary": "FFLLSSSSYYYYCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATG"
+      ],
+      "stops": [
+        "TGA"
+      ]
+    },
+    {
+      "id": 30,
+      "ordinary": "FFLLSSSSYYEECC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATG"
+      ],
+      "stops": [
+        "TGA"
+      ]
+    },
+    {
+      "id": 31,
+      "ordinary": "FFLLSSSSYYEECCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "ATG"
+      ],
+      "stops": [
+        "TAA",
+        "TAG"
+      ]
+    },
+    {
+      "id": 32,
+      "ordinary": "FFLLSSSSYY*WCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+      "starts": [
+        "TTG",
+        "CTG",
+        "ATT",
+        "ATC",
+        "ATA",
+        "ATG",
+        "GTG"
+      ],
+      "stops": [
+        "TAA",
+        "TGA"
+      ]
+    },
+    {
+      "id": 33,
+      "ordinary": "FFLLSSSSYYY*CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSSKVVVVAAAADDEEGGGG",
+      "starts": [
+        "TTG",
+        "CTG",
+        "ATG",
+        "GTG"
+      ],
+      "stops": [
+        "TAG"
+      ]
+    }
+  ],
+  "cdsCases": [
+    {
+      "table": 1,
+      "phase": 0,
+      "dna": "TTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 1,
+      "phase": 0,
+      "dna": "CTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 1,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 1,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 1,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 2,
+      "phase": 0,
+      "dna": "ATTGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 2,
+      "phase": 0,
+      "dna": "ATCGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 2,
+      "phase": 0,
+      "dna": "ATAGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 2,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 2,
+      "phase": 0,
+      "dna": "GTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 2,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 2,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 3,
+      "phase": 0,
+      "dna": "ATAGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 3,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 3,
+      "phase": 0,
+      "dna": "GTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 3,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 3,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 4,
+      "phase": 0,
+      "dna": "TTAGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 4,
+      "phase": 0,
+      "dna": "TTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 4,
+      "phase": 0,
+      "dna": "CTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 4,
+      "phase": 0,
+      "dna": "ATTGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 4,
+      "phase": 0,
+      "dna": "ATCGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 4,
+      "phase": 0,
+      "dna": "ATAGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 4,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 4,
+      "phase": 0,
+      "dna": "GTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 4,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 4,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 5,
+      "phase": 0,
+      "dna": "TTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 5,
+      "phase": 0,
+      "dna": "ATTGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 5,
+      "phase": 0,
+      "dna": "ATCGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 5,
+      "phase": 0,
+      "dna": "ATAGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 5,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 5,
+      "phase": 0,
+      "dna": "GTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 5,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 5,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 6,
+      "phase": 0,
+      "dna": "ATGGCTTGA",
+      "protein": "MA*"
+    },
+    {
+      "table": 6,
+      "phase": 1,
+      "dna": "CGCTATGTGGTGA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 6,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTGA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 9,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 9,
+      "phase": 0,
+      "dna": "GTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 9,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 9,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 10,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 10,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 10,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 11,
+      "phase": 0,
+      "dna": "TTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 11,
+      "phase": 0,
+      "dna": "CTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 11,
+      "phase": 0,
+      "dna": "ATTGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 11,
+      "phase": 0,
+      "dna": "ATCGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 11,
+      "phase": 0,
+      "dna": "ATAGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 11,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 11,
+      "phase": 0,
+      "dna": "GTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 11,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 11,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 12,
+      "phase": 0,
+      "dna": "CTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 12,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 12,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 12,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 13,
+      "phase": 0,
+      "dna": "TTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 13,
+      "phase": 0,
+      "dna": "ATAGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 13,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 13,
+      "phase": 0,
+      "dna": "GTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 13,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 13,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 14,
+      "phase": 0,
+      "dna": "ATGGCTTAG",
+      "protein": "MA*"
+    },
+    {
+      "table": 14,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAG",
+      "protein": "AMW*"
+    },
+    {
+      "table": 14,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAG",
+      "protein": "AMW*"
+    },
+    {
+      "table": 15,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 15,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 15,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 16,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 16,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 16,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 21,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 21,
+      "phase": 0,
+      "dna": "GTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 21,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 21,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 22,
+      "phase": 0,
+      "dna": "ATGGCTTCA",
+      "protein": "MA*"
+    },
+    {
+      "table": 22,
+      "phase": 1,
+      "dna": "CGCTATGTGGTCA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 22,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTCA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 23,
+      "phase": 0,
+      "dna": "ATTGCTTTA",
+      "protein": "MA*"
+    },
+    {
+      "table": 23,
+      "phase": 0,
+      "dna": "ATGGCTTTA",
+      "protein": "MA*"
+    },
+    {
+      "table": 23,
+      "phase": 0,
+      "dna": "GTGGCTTTA",
+      "protein": "MA*"
+    },
+    {
+      "table": 23,
+      "phase": 1,
+      "dna": "CGCTATGTGGTTA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 23,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTTA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 24,
+      "phase": 0,
+      "dna": "TTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 24,
+      "phase": 0,
+      "dna": "CTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 24,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 24,
+      "phase": 0,
+      "dna": "GTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 24,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 24,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 25,
+      "phase": 0,
+      "dna": "TTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 25,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 25,
+      "phase": 0,
+      "dna": "GTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 25,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 25,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 26,
+      "phase": 0,
+      "dna": "CTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 26,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 26,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 26,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 27,
+      "phase": 0,
+      "dna": "ATGGCTTGA",
+      "protein": "MA*"
+    },
+    {
+      "table": 27,
+      "phase": 1,
+      "dna": "CGCTATGTGGTGA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 27,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTGA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 28,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 28,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 28,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 29,
+      "phase": 0,
+      "dna": "ATGGCTTGA",
+      "protein": "MA*"
+    },
+    {
+      "table": 29,
+      "phase": 1,
+      "dna": "CGCTATGTGGTGA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 29,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTGA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 30,
+      "phase": 0,
+      "dna": "ATGGCTTGA",
+      "protein": "MA*"
+    },
+    {
+      "table": 30,
+      "phase": 1,
+      "dna": "CGCTATGTGGTGA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 30,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTGA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 31,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 31,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 31,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 32,
+      "phase": 0,
+      "dna": "TTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 32,
+      "phase": 0,
+      "dna": "CTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 32,
+      "phase": 0,
+      "dna": "ATTGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 32,
+      "phase": 0,
+      "dna": "ATCGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 32,
+      "phase": 0,
+      "dna": "ATAGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 32,
+      "phase": 0,
+      "dna": "ATGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 32,
+      "phase": 0,
+      "dna": "GTGGCTTAA",
+      "protein": "MA*"
+    },
+    {
+      "table": 32,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 32,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAA",
+      "protein": "AMW*"
+    },
+    {
+      "table": 33,
+      "phase": 0,
+      "dna": "TTGGCTTAG",
+      "protein": "MA*"
+    },
+    {
+      "table": 33,
+      "phase": 0,
+      "dna": "CTGGCTTAG",
+      "protein": "MA*"
+    },
+    {
+      "table": 33,
+      "phase": 0,
+      "dna": "ATGGCTTAG",
+      "protein": "MA*"
+    },
+    {
+      "table": 33,
+      "phase": 0,
+      "dna": "GTGGCTTAG",
+      "protein": "MA*"
+    },
+    {
+      "table": 33,
+      "phase": 1,
+      "dna": "CGCTATGTGGTAG",
+      "protein": "AMW*"
+    },
+    {
+      "table": 33,
+      "phase": 2,
+      "dna": "CCGCTATGTGGTAG",
+      "protein": "AMW*"
+    }
+  ]
+}

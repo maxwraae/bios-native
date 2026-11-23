@@ -1,0 +1,40 @@
+LOCUS       wrap_demo                800 bp    DNA     circular SYN 02-AUG-2026
+DEFINITION  Circular demo plasmid whose AmpR spans the origin (join syntax).
+ACCESSION  wrap_demo
+VERSION  wrap_demo
+KEYWORDS    .
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+COMMENT             bios_construct_id: e1bce6ce-3ba7-41a1-bc1f-21012f5d610f
+FEATURES             Location/Qualifiers
+     CDS             750..100
+                     /label="AmpR"
+                     /note="spans the origin - the shape that used to be silent
+                     ly dropped"
+                     /note="bios-id: a5cc56ef-8a13-4078-8ec5-4fccdab05ff0"
+     CDS             200..500
+                     /label="GFP"
+                     /note="bios-id: a707e5aa-f243-4fa3-a0a5-8d799992693d"
+     misc_feature    600..620
+                     /label="MCS"
+                     /note="bios-id: d309da17-9797-47c9-933a-b620a40aa84f"
+     source          1..800
+                     /label="synthetic DNA construct"
+                     /organism="synthetic DNA construct"
+                     /note="bios-id: c9134bb3-7f24-4046-8d74-39c10b95d0cd"
+ORIGIN      
+        1 acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag
+       61 acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag
+      121 acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag
+      181 acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag
+      241 acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag
+      301 acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag
+      361 acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag
+      421 acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag
+      481 acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag
+      541 acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag
+      601 acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag
+      661 acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag
+      721 acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag acgtacgtag
+      781 acgtacgtag acgtacgtag    
+//

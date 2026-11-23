@@ -1,0 +1,59 @@
+<p>A variant is one of the alternatives a feature can be at its position. Three promoters you are
+choosing between are three variants of the promoter at that spot in the construct.</p>
+
+<p>The reason variants are a built in idea rather than something you manage by hand is that the
+alternative is worse: a folder of nearly identical plasmid files, named
+<code>pXYZ_v2_final_CMV.gb</code>, whose relationship to each other exists only in your head.</p>
+
+<h2>Picking one, or keeping several</h2>
+
+<p>There are two different things you can do at a position, and they are worth separating.</p>
+
+<ul>
+  <li><strong>Swap.</strong> You want one answer and you are choosing which. The construct stays a
+  single molecule.</li>
+  <li><strong>Vary.</strong> You want several at once, deliberately. One design now describes many
+  molecules, and what you build is a set rather than a sequence.</li>
+</ul>
+
+<p>Varying is what you are doing when you say "try all four promoters against both signal peptides".
+That is eight constructs, and you should not have to make eight files to say it.</p>
+
+<h2>The variants table</h2>
+
+<p>Varying happens in BUILD, which you reach from the rail or with <code>Cmd Shift B</code>.</p>
+
+<p>The Variants tab is a table: positions across, rows down. The positions are the features of the
+construct you have open, so you are choosing among real annotated spans rather than abstract slots.
+Above the table, the constructs that the table currently describes are drawn as linear maps, from
+the actual generated sequence rather than from a sketch.</p>
+
+<h3>How many it builds</h3>
+
+<p>Combinations grow fast, and four positions with four options each is already 256 molecules. The
+table reports the true total so the number never lies to you, but only <strong>the first 64 are
+actually generated</strong>. That ceiling exists because building thousands of sequences to draw a
+table nobody will read is not a good use of your machine.</p>
+
+<p>If you need the full set, that is the point at which you are describing a library rather than a
+handful of candidates, and the design should be narrowed before it is built rather than after.</p>
+
+<h2>Variants and derivatives</h2>
+
+<p>One distinction that saves confusion later: choosing a different variant is not the same as
+editing one.</p>
+
+<p>Swapping in a different promoter selects a different thing that already exists. Editing a
+promoter's bases produces a new thing, because a sequence that differs by one base is a different
+molecule and should not quietly keep the old one's name. Bios treats the edited version as its own
+named feature rather than as a silent overwrite of the original.</p>
+
+<p>This matters most when the feature came from somewhere shared. If you change it, what you have
+is yours, and the thing you started from is still what it was.</p>
+
+<h2>Assembly</h2>
+
+<p>The Gibson tab beside Variants goes the other way: instead of enumerating alternatives, it works
+out how to physically build one construct. Pick where the backbone opens, either with an enzyme pair
+or by replacing a span, add your named inserts, and it produces eBlocks with the homology arms
+tinted so you can see what overlaps what.</p>

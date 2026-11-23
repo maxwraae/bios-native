@@ -1,0 +1,19 @@
+[package]
+name = "bios-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+bios-engine = { workspace = true }
+bios-project = { workspace = true }
+craft-mcp-server = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

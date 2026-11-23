@@ -1,0 +1,18 @@
+ID   pMINI; SV 1; circular; DNA; STD; SYN; 240 BP.
+AC   ;
+DE   A tiny EMBL plasmid, so the format Bios claims to read has a file to prove it.
+KW   cloning vector.
+FH   Key             Location/Qualifiers
+FT   CDS             join(1..60,121..180)
+FT                   /gene="gfp"
+FT                   /label="GFP"
+FT                   /product="green fluorescent protein"
+FT   promoter        complement(61..120)
+FT                   /label="Ptest"
+FT                   /note="a promoter that says ""hello"" in its note"
+SQ   Sequence 240 BP; 60 A; 60 C; 60 G; 60 T; 0 other;
+     atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc        60
+     atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc       120
+     atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc       180
+     atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc       240
+//

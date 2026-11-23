@@ -1,0 +1,531 @@
+[
+ {
+  "label": "the test plasmid",
+  "fileName": "pTEST.embl",
+  "text": "ID   pTEST; SV 1; circular; DNA; STD; SYN; 60 BP.\nAC   X99999;\nDE   a test plasmid\nKW   cloning vector.\nFH   Key             Location/Qualifiers\nFT   CDS             join(complement(1..20),complement(31..50))\nFT                   /gene=\"bla\"\nFT                   /label=\"AmpR\"\nFT                   /note=\"says \"\"hello\"\" here\"\nFT   promoter        5..15\nFT                   /label=\"Ptest\"\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc        60\n//\n",
+  "web": {
+   "ok": true,
+   "format": "embl",
+   "records": 1,
+   "name": "pTEST",
+   "circular": true,
+   "length": 60,
+   "size": 60,
+   "sequence": "atgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgc",
+   "description": "a test plasmid",
+   "comments": [],
+   "notices": [],
+   "features": [
+    {
+     "name": "AmpR",
+     "type": "CDS",
+     "start": 30,
+     "end": 19,
+     "strand": -1,
+     "locations": [
+      [
+       30,
+       49
+      ],
+      [
+       0,
+       19
+      ]
+     ],
+     "notes": [
+      [
+       "gene",
+       [
+        "bla"
+       ]
+      ],
+      [
+       "note",
+       [
+        "says \"hello\" here"
+       ]
+      ]
+     ],
+     "color": null,
+     "arrowheadType": null,
+     "forward": false,
+     "exported": []
+    },
+    {
+     "name": "Ptest",
+     "type": "promoter",
+     "start": 4,
+     "end": 14,
+     "strand": 1,
+     "locations": null,
+     "notes": [],
+     "color": null,
+     "arrowheadType": null,
+     "forward": true,
+     "exported": []
+    }
+   ]
+  }
+ },
+ {
+  "label": "linear",
+  "fileName": "frag.embl",
+  "text": "ID   frag; SV 1; linear; DNA; STD; SYN; 20 BP.\nSQ   Sequence 20 BP;\n     atgcatgcat gcatgcatgc                                                    20\n//\n",
+  "web": {
+   "ok": true,
+   "format": "embl",
+   "records": 1,
+   "name": "frag",
+   "circular": false,
+   "length": 20,
+   "size": 20,
+   "sequence": "atgcatgcatgcatgcatgc",
+   "description": ".",
+   "comments": [],
+   "notices": [],
+   "features": []
+  }
+ },
+ {
+  "label": "two records",
+  "fileName": "library.embl",
+  "text": "ID   pTEST; SV 1; circular; DNA; STD; SYN; 60 BP.\nAC   X99999;\nDE   a test plasmid\nKW   cloning vector.\nFH   Key             Location/Qualifiers\nFT   CDS             join(complement(1..20),complement(31..50))\nFT                   /gene=\"bla\"\nFT                   /label=\"AmpR\"\nFT                   /note=\"says \"\"hello\"\" here\"\nFT   promoter        5..15\nFT                   /label=\"Ptest\"\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc        60\n//\nID   pTEST2; SV 1; circular; DNA; STD; SYN; 60 BP.\nAC   X99999;\nDE   a test plasmid\nKW   cloning vector.\nFH   Key             Location/Qualifiers\nFT   CDS             join(complement(1..20),complement(31..50))\nFT                   /gene=\"bla\"\nFT                   /label=\"AmpR\"\nFT                   /note=\"says \"\"hello\"\" here\"\nFT   promoter        5..15\nFT                   /label=\"Ptest\"\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc        60\n//\n",
+  "web": {
+   "ok": true,
+   "format": "embl",
+   "records": 2,
+   "name": "pTEST",
+   "circular": true,
+   "length": 60,
+   "size": 60,
+   "sequence": "atgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgc",
+   "description": "a test plasmid",
+   "comments": [],
+   "notices": [
+    "library.embl holds 2 sequences. Bios opened the first."
+   ],
+   "features": [
+    {
+     "name": "AmpR",
+     "type": "CDS",
+     "start": 30,
+     "end": 19,
+     "strand": -1,
+     "locations": [
+      [
+       30,
+       49
+      ],
+      [
+       0,
+       19
+      ]
+     ],
+     "notes": [
+      [
+       "gene",
+       [
+        "bla"
+       ]
+      ],
+      [
+       "note",
+       [
+        "says \"hello\" here"
+       ]
+      ]
+     ],
+     "color": null,
+     "arrowheadType": null,
+     "forward": false,
+     "exported": []
+    },
+    {
+     "name": "Ptest",
+     "type": "promoter",
+     "start": 4,
+     "end": 14,
+     "strand": 1,
+     "locations": null,
+     "notes": [],
+     "color": null,
+     "arrowheadType": null,
+     "forward": true,
+     "exported": []
+    }
+   ]
+  }
+ },
+ {
+  "label": "legacy ID line",
+  "fileName": "legacy.embl",
+  "text": "ID   X56734  standard; circular DNA; PLN; 20 BP.\nSQ   Sequence 20 BP;\n     atgcatgcat gcatgcatgc                                                    20\n//\n",
+  "web": {
+   "ok": true,
+   "format": "embl",
+   "records": 1,
+   "name": "X56734",
+   "circular": true,
+   "length": 20,
+   "size": 20,
+   "sequence": "atgcatgcatgcatgcatgc",
+   "description": ".",
+   "comments": [],
+   "notices": [],
+   "features": []
+  }
+ },
+ {
+  "label": "topology not stated",
+  "fileName": "untold.embl",
+  "text": "ID   untold; SV 1; DNA; STD; SYN; 20 BP.\nAC   A1;\nSQ   Sequence 20 BP;\n     atgcatgcat gcatgcatgc                                                    20\n//\n",
+  "web": {
+   "ok": true,
+   "format": "embl",
+   "records": 1,
+   "name": "untold",
+   "circular": false,
+   "length": 20,
+   "size": 20,
+   "sequence": "atgcatgcatgcatgcatgc",
+   "description": ".",
+   "comments": [],
+   "notices": [
+    "untold doesn't say whether it is circular, so it opened as linear."
+   ],
+   "features": []
+  }
+ },
+ {
+  "label": "thirty bases",
+  "fileName": "pTEST.embl",
+  "text": "ID   pTEST; SV 1; circular; DNA; STD; SYN; 30 BP.\nAC   X99999;\nDE   a test plasmid\nSQ   Sequence 30 BP;\n     atgcatgcat gcatgcatgc atgcatgcat                                       30\n//\n",
+  "web": {
+   "ok": true,
+   "format": "embl",
+   "records": 1,
+   "name": "pTEST",
+   "circular": true,
+   "length": 30,
+   "size": 30,
+   "sequence": "atgcatgcatgcatgcatgcatgcatgcat",
+   "description": "a test plasmid",
+   "comments": [],
+   "notices": [],
+   "features": []
+  }
+ },
+ {
+  "label": "every header line",
+  "fileName": "full.embl",
+  "text": "ID   pFULL; SV 2; circular; DNA; STD; SYN; 60 BP.\nXX\nAC   AB000001; AB000002;\nXX\nDT   01-JAN-2020 (Rel. 1, Created)\nDE   A plasmid with a description long enough that it has to be wrapped when it\nDE   becomes a GenBank definition line, and then some more words to be sure.\nKW   cloning vector; expression.\nOS   synthetic construct\nOC   other sequences; artificial sequences.\nCC   A comment line.\nCC   And a second one.\nFH   Key             Location/Qualifiers\nFH\nFT   source          1..60\nFT                   /organism=\"synthetic construct\"\nFT                   /mol_type=\"other DNA\"\nFT   misc_feature    join(51..60,1..10)\nFT                   /label=\"across the origin\"\nFT   CDS             complement(join(11..20,31..40))\nFT                   /label=\"two exons\"\nFT                   /codon_start=1\nFT                   /note=\"a note that is long enough to be wrapped over two lines of the\nFT                   feature table, as a real one would be\"\nFT   gene            complement(41..50)\nFT                   /gene=\"g\"\nFT                   /pseudo\nXX\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc        60\n//\n",
+  "web": {
+   "ok": true,
+   "format": "embl",
+   "records": 1,
+   "name": "pFULL",
+   "circular": true,
+   "length": 60,
+   "size": 60,
+   "sequence": "atgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgc",
+   "description": "A plasmid with a description long enough that it has to be wrapped when it becomes a GenBank definition line, and then some more words to be sure.",
+   "comments": [
+    "A comment line. And a second one."
+   ],
+   "notices": [],
+   "features": [
+    {
+     "name": "synthetic construct",
+     "type": "source",
+     "start": 0,
+     "end": 59,
+     "strand": 1,
+     "locations": null,
+     "notes": [
+      [
+       "organism",
+       [
+        "synthetic construct"
+       ]
+      ],
+      [
+       "mol_type",
+       [
+        "other DNA"
+       ]
+      ]
+     ],
+     "color": null,
+     "arrowheadType": null,
+     "forward": true,
+     "exported": []
+    },
+    {
+     "name": "across the origin",
+     "type": "misc_feature",
+     "start": 50,
+     "end": 9,
+     "strand": 1,
+     "locations": [
+      [
+       50,
+       59
+      ],
+      [
+       0,
+       9
+      ]
+     ],
+     "notes": [],
+     "color": null,
+     "arrowheadType": null,
+     "forward": true,
+     "exported": []
+    },
+    {
+     "name": "two exons",
+     "type": "CDS",
+     "start": 10,
+     "end": 39,
+     "strand": -1,
+     "locations": [
+      [
+       10,
+       19
+      ],
+      [
+       30,
+       39
+      ]
+     ],
+     "notes": [
+      [
+       "codon_start",
+       [
+        "1"
+       ]
+      ],
+      [
+       "note",
+       [
+        "a note that is long enough to be wrapped over two lines of thefeature table, as a real one would be"
+       ]
+      ]
+     ],
+     "color": null,
+     "arrowheadType": null,
+     "forward": false,
+     "exported": []
+    },
+    {
+     "name": "g",
+     "type": "gene",
+     "start": 40,
+     "end": 49,
+     "strand": -1,
+     "locations": null,
+     "notes": [
+      [
+       "pseudo",
+       [
+        ""
+       ]
+      ]
+     ],
+     "color": null,
+     "arrowheadType": null,
+     "forward": false,
+     "exported": []
+    }
+   ]
+  }
+ },
+ {
+  "label": "windows line ends",
+  "fileName": "crlf.embl",
+  "text": "ID   pTEST; SV 1; circular; DNA; STD; SYN; 60 BP.\r\nAC   X99999;\r\nDE   a test plasmid\r\nKW   cloning vector.\r\nFH   Key             Location/Qualifiers\r\nFT   CDS             join(complement(1..20),complement(31..50))\r\nFT                   /gene=\"bla\"\r\nFT                   /label=\"AmpR\"\r\nFT                   /note=\"says \"\"hello\"\" here\"\r\nFT   promoter        5..15\r\nFT                   /label=\"Ptest\"\r\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\r\n     atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc        60\r\n//\r\n",
+  "web": {
+   "ok": true,
+   "format": "embl",
+   "records": 1,
+   "name": "pTEST",
+   "circular": true,
+   "length": 60,
+   "size": 60,
+   "sequence": "atgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgc",
+   "description": "a test plasmid",
+   "comments": [],
+   "notices": [],
+   "features": [
+    {
+     "name": "AmpR",
+     "type": "CDS",
+     "start": 30,
+     "end": 19,
+     "strand": -1,
+     "locations": [
+      [
+       30,
+       49
+      ],
+      [
+       0,
+       19
+      ]
+     ],
+     "notes": [
+      [
+       "gene",
+       [
+        "bla"
+       ]
+      ],
+      [
+       "note",
+       [
+        "says \"hello\" here"
+       ]
+      ]
+     ],
+     "color": null,
+     "arrowheadType": null,
+     "forward": false,
+     "exported": []
+    },
+    {
+     "name": "Ptest",
+     "type": "promoter",
+     "start": 4,
+     "end": 14,
+     "strand": 1,
+     "locations": null,
+     "notes": [],
+     "color": null,
+     "arrowheadType": null,
+     "forward": true,
+     "exported": []
+    }
+   ]
+  }
+ },
+ {
+  "label": "a long name",
+  "fileName": "long.embl",
+  "text": "ID   a_name_longer_than_sixteen_letters; SV 1; circular; DNA; STD; SYN; 60 BP.\nAC   A1;\nSQ   Sequence 60 BP;\n     atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc        60\n//\n",
+  "web": {
+   "ok": true,
+   "format": "embl",
+   "records": 1,
+   "name": "a_name_longer_th",
+   "circular": true,
+   "length": 60,
+   "size": 60,
+   "sequence": "atgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgc",
+   "description": ".",
+   "comments": [],
+   "notices": [],
+   "features": []
+  }
+ },
+ {
+  "label": "capitals and a second line",
+  "fileName": "upper.embl",
+  "text": "ID   pUP; SV 1; linear; DNA; STD; PLN; 70 BP.\nAC   A1;\nFT   promoter        61..70\nFT                   /label=\"tail\"\nSQ   Sequence 70 BP;\n     ATGCATGCAT GCATGCATGC ATGCATGCAT GCATGCATGC ATGCATGCAT GCATGCATGC        60\n     ATGCATGCAT                                                               70\n//\n",
+  "web": {
+   "ok": true,
+   "format": "embl",
+   "records": 1,
+   "name": "pUP",
+   "circular": false,
+   "length": 70,
+   "size": 70,
+   "sequence": "atgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcat",
+   "description": ".",
+   "comments": [],
+   "notices": [],
+   "features": [
+    {
+     "name": "tail",
+     "type": "promoter",
+     "start": 60,
+     "end": 69,
+     "strand": 1,
+     "locations": null,
+     "notes": [],
+     "color": null,
+     "arrowheadType": null,
+     "forward": true,
+     "exported": []
+    }
+   ]
+  }
+ },
+ {
+  "label": "byte order mark",
+  "fileName": "bom.embl",
+  "text": "﻿ID   pTEST; SV 1; circular; DNA; STD; SYN; 60 BP.\nAC   X99999;\nDE   a test plasmid\nKW   cloning vector.\nFH   Key             Location/Qualifiers\nFT   CDS             join(complement(1..20),complement(31..50))\nFT                   /gene=\"bla\"\nFT                   /label=\"AmpR\"\nFT                   /note=\"says \"\"hello\"\" here\"\nFT   promoter        5..15\nFT                   /label=\"Ptest\"\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc        60\n//\n",
+  "web": {
+   "ok": true,
+   "format": "embl",
+   "records": 1,
+   "name": "pTEST",
+   "circular": true,
+   "length": 60,
+   "size": 60,
+   "sequence": "atgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgc",
+   "description": "a test plasmid",
+   "comments": [],
+   "notices": [],
+   "features": [
+    {
+     "name": "AmpR",
+     "type": "CDS",
+     "start": 30,
+     "end": 19,
+     "strand": -1,
+     "locations": [
+      [
+       30,
+       49
+      ],
+      [
+       0,
+       19
+      ]
+     ],
+     "notes": [
+      [
+       "gene",
+       [
+        "bla"
+       ]
+      ],
+      [
+       "note",
+       [
+        "says \"hello\" here"
+       ]
+      ]
+     ],
+     "color": null,
+     "arrowheadType": null,
+     "forward": false,
+     "exported": []
+    },
+    {
+     "name": "Ptest",
+     "type": "promoter",
+     "start": 4,
+     "end": 14,
+     "strand": 1,
+     "locations": null,
+     "notes": [],
+     "color": null,
+     "arrowheadType": null,
+     "forward": true,
+     "exported": []
+    }
+   ]
+  }
+ }
+]

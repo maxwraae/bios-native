@@ -1,0 +1,23 @@
+[package]
+name = "bios-update"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# Lets a release be served from 127.0.0.1 to try the whole update on one machine: the release
+# list is read from `BIOS_UPDATE_API` and plain-HTTP loopback downloads are accepted. Never in a
+# release build.
+local-mirror = ["craft-update/local-mirror"]
+
+[dependencies]
+bios-engine = { workspace = true }
+craft-update = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+sha2 = { workspace = true }

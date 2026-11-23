@@ -1,0 +1,20 @@
+[package]
+name = "bios-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# Try an update against a release served from 127.0.0.1 (see bios-update). Never in a release.
+local-mirror = ["bios-update/local-mirror"]
+
+[dependencies]
+bios-engine = { workspace = true }
+bios-mcp = { workspace = true }
+bios-project = { workspace = true }
+bios-update = { workspace = true }
+serde_json = { workspace = true }

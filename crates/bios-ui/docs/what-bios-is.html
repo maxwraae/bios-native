@@ -1,0 +1,52 @@
+<p>Bios is a plasmid and DNA sequence editor that runs in your browser, with an assistant that can
+read and change the construct you have open. It is free, and there is nothing to install.</p>
+
+<p>If you have used SnapGene or Benchling, the map and the sequence view will feel familiar. The
+part that is different is the assistant, and most of what is worth learning here is about what it
+can and cannot do on your behalf.</p>
+
+<h2>The loop</h2>
+
+<p>Almost everything in Bios is one of four steps, in order:</p>
+
+<ol>
+  <li><strong>Open a construct.</strong> Drop a file in, fetch a published sequence, or start a
+  blank one. Bios reads GenBank, FASTA, SnapGene <code>.dna</code>, EMBL, APE and plain
+  <code>.seq</code> files.</li>
+  <li><strong>Change it.</strong> Edit bases directly, annotate a span, or ask the assistant to make
+  the change for you.</li>
+  <li><strong>Order what you need to build it.</strong> Bios harvests every primer you have
+  annotated into an order CSV, so the list is derived from the construct rather than typed out
+  again by hand.</li>
+  <li><strong>Record what came back.</strong> Sequencing results are read against the construct you
+  designed, so the file knows whether it worked.</li>
+</ol>
+
+<p>The four pages under Concepts are the vocabulary those steps use. If you read one, read
+<a href="/docs/feature">Features</a>: it is the idea the rest of the app is built on.</p>
+
+<h2>What the assistant changes, and what it does not</h2>
+
+<p>The assistant never edits your construct silently. When it wants to change bases or annotations
+it hands you a <strong>proposal</strong>: a card in the chat panel with a summary, the reason, and
+a base level diff of exactly what would change. Nothing moves until you press Accept.</p>
+
+<p>Reading is different. When the assistant looks something up, translates a region, or searches for
+a restriction site, it just does it, and you see a small activity pill saying what it looked at.
+Reads do not need your permission because they change nothing.</p>
+
+<h2>Getting the assistant switched on</h2>
+
+<p>Signing up is open and the editor works the moment you land. The assistant does not: it stays
+locked until your account is approved. There is a <strong>Request access</strong> button in the
+chat panel, and once you are approved the panel unlocks on its own without a reload.</p>
+
+<p>This is a capacity limit rather than a sales gate. The editor is not a trial and does not expire.</p>
+
+<h2>Where your work lives</h2>
+
+<p>Constructs live in projects, and a project is the thing you land in when you open Bios. Editing
+saves as you go, so there is no Save button; press <code>Cmd S</code> if you want to flush a pending
+save immediately rather than wait the couple of seconds it takes on its own.</p>
+
+<p>See <a href="/docs/project">Projects and constructs</a> for how the two fit together.</p>

@@ -1,0 +1,20 @@
+[package]
+name = "bios-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Gzip, every member of a multi-member file (MIT OR Apache-2.0, already in the tree through the
+# image loaders).
+flate2 = "1"
+serde = { workspace = true }
+# The zip download's checksums (MIT OR Apache-2.0, already in the tree under flate2).
+crc32fast = "1"
+
+[dev-dependencies]
+serde_json = { workspace = true }

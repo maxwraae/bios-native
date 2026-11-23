@@ -1,0 +1,68 @@
+<p>A project holds constructs. It is a folder on your computer, wherever you keep it, and Bios
+opens folders the way a code editor does: any folder of sequence files opens as a project, and the
+ones you opened are kept in a list.</p>
+
+<h2>The grid</h2>
+
+<p>Opening Bios puts you on the projects grid: the folders you opened lately. Each card draws a real
+map of what is inside rather than an icon, along with how many constructs it holds, when you last
+touched it and where its folder is, so you can find the right one by sight.</p>
+
+<p>There are three ways to start:</p>
+
+<ul>
+  <li><strong>Open folder.</strong> Any folder opens as it is, even one of plain GenBank, FASTA or
+  SnapGene files from your Downloads. Nothing is written into it until you change something; then
+  it becomes a Bios project, with its history kept beside its files.</li>
+  <li><strong>New project.</strong> Choose where to make it and what to call it.</li>
+  <li><strong>Drop a file on the grid.</strong> A project is made around it.</li>
+</ul>
+
+<p>Projects can be pinned, reordered by dragging, searched and renamed (the folder is renamed where
+it is). Removing one from the list leaves its folder alone; deleting moves the folder to the Trash,
+and asks first, in the card itself.</p>
+
+<h2>Constructs</h2>
+
+<p>Inside a project, the constructs are listed in the rail on the left. Several can be open at once,
+each with its own undo history and its own save queue, so an edit in one cannot disturb another.</p>
+
+<p>Per construct, from the rail:</p>
+
+<ul>
+  <li><strong>Rename</strong> it.</li>
+  <li><strong>Clone</strong> it, which opens the copy beside the original.</li>
+  <li><strong>Delete</strong> it, confirmed in the row.</li>
+  <li><strong>Focus</strong> it, which is the one worth understanding. See below.</li>
+</ul>
+
+<p>The <code>+</code> on the CONSTRUCTS header makes a new blank one. Dropping a plasmid file
+anywhere over the working area adds it to the project you are in.</p>
+
+<h3>Moving between them</h3>
+
+<ul>
+  <li><code>Ctrl Tab</code> and <code>Ctrl Shift Tab</code> step through the open constructs.</li>
+  <li><code>Cmd 1</code> to <code>Cmd 9</code> jump to one directly.</li>
+  <li><code>Cmd W</code> closes the one in front.</li>
+</ul>
+
+<p>When you come back later, the constructs you had open are put back.</p>
+
+<h2>Which construct the assistant is looking at</h2>
+
+<p>This is the part that catches people out. Having several constructs open means the assistant
+needs to know which one you mean, and it does not guess from whichever tab happens to be in front.
+The construct it works on is the one you have set as the <strong>focus</strong>, from the rail.</p>
+
+<p>If the assistant answers about a different construct than the one you are staring at, this is
+almost always why.</p>
+
+<h2>Saving</h2>
+
+<p>Editing saves as you go and there is no Save button. <code>Cmd S</code> flushes a pending save
+straight away rather than waiting the couple of seconds it would take on its own.</p>
+
+<p>One caveat worth knowing: after the assistant makes an edit you accepted, the construct is
+brought back into line when the app next saves it. If you have just accepted a proposal and are
+about to close the tab, press <code>Cmd S</code> first.</p>

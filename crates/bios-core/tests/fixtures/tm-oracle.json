@@ -1,0 +1,1448 @@
+{
+  "biopython": "1.85",
+  "table": "DNA_NN3",
+  "saltcorr": 5,
+  "source": "https://biopython.org/docs/1.85/api/Bio.SeqUtils.MeltingTemp.html",
+  "cases": [
+    {
+      "sequence": "AA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": -204.49009145021512,
+      "gibsonTm": -200.31584903651367
+    },
+    {
+      "sequence": "AA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": -209.50880861149707,
+      "gibsonTm": -200.31584903651367
+    },
+    {
+      "sequence": "AA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": -199.90348444058603,
+      "gibsonTm": -200.31584903651367
+    },
+    {
+      "sequence": "AA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": -200.7550179619227,
+      "gibsonTm": -200.31584903651367
+    },
+    {
+      "sequence": "AC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": -164.3814073446664,
+      "gibsonTm": -158.66457046381367
+    },
+    {
+      "sequence": "AC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": -171.37436982311198,
+      "gibsonTm": -158.66457046381367
+    },
+    {
+      "sequence": "AC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": -158.1046305963522,
+      "gibsonTm": -158.66457046381367
+    },
+    {
+      "sequence": "AC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": -159.26185258103936,
+      "gibsonTm": -158.66457046381367
+    },
+    {
+      "sequence": "AG",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": -172.7091441518702,
+      "gibsonTm": -167.28511653085414
+    },
+    {
+      "sequence": "AG",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": -179.32378090655237,
+      "gibsonTm": -167.28511653085414
+    },
+    {
+      "sequence": "AG",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": -166.75305654873745,
+      "gibsonTm": -167.28511653085414
+    },
+    {
+      "sequence": "AG",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": -167.85250202953694,
+      "gibsonTm": -167.28511653085414
+    },
+    {
+      "sequence": "AT",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": -215.25439289079077,
+      "gibsonTm": -213.39144641554606
+    },
+    {
+      "sequence": "AT",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": -219.7604210296048,
+      "gibsonTm": -213.39144641554606
+    },
+    {
+      "sequence": "AT",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": -211.09567356518286,
+      "gibsonTm": -213.39144641554606
+    },
+    {
+      "sequence": "AT",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": -211.870728641947,
+      "gibsonTm": -213.39144641554606
+    },
+    {
+      "sequence": "CA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": -163.1667337215149,
+      "gibsonTm": -157.41895588634503
+    },
+    {
+      "sequence": "CA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": -170.20198925362234,
+      "gibsonTm": -157.41895588634503
+    },
+    {
+      "sequence": "CA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": -156.85616115542024,
+      "gibsonTm": -157.41895588634503
+    },
+    {
+      "sequence": "CA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": -158.0193177960876,
+      "gibsonTm": -157.41895588634503
+    },
+    {
+      "sequence": "CC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": -142.1961820354846,
+      "gibsonTm": -135.8464001166024
+    },
+    {
+      "sequence": "CC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": -150.03074338460306,
+      "gibsonTm": -135.8464001166024
+    },
+    {
+      "sequence": "CC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": -135.2271059884922,
+      "gibsonTm": -135.8464001166024
+    },
+    {
+      "sequence": "CC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": -136.50751220413017,
+      "gibsonTm": -135.8464001166024
+    },
+    {
+      "sequence": "CG",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": -114.39177229880292,
+      "gibsonTm": -110.92480909542815
+    },
+    {
+      "sequence": "CG",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": -123.07490935407756,
+      "gibsonTm": -110.92480909542815
+    },
+    {
+      "sequence": "CG",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": -106.74672729464314,
+      "gibsonTm": -110.92480909542815
+    },
+    {
+      "sequence": "CG",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": -108.14581116025104,
+      "gibsonTm": -110.92480909542815
+    },
+    {
+      "sequence": "CT",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": -172.7091441518702,
+      "gibsonTm": -167.28511653085414
+    },
+    {
+      "sequence": "CT",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": -179.32378090655237,
+      "gibsonTm": -167.28511653085414
+    },
+    {
+      "sequence": "CT",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": -166.75305654873745,
+      "gibsonTm": -167.28511653085414
+    },
+    {
+      "sequence": "CT",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": -167.85250202953694,
+      "gibsonTm": -167.28511653085414
+    },
+    {
+      "sequence": "GA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": -167.62443151406524,
+      "gibsonTm": -162.05679968981786
+    },
+    {
+      "sequence": "GA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": -174.4319878992963,
+      "gibsonTm": -162.05679968981786
+    },
+    {
+      "sequence": "GA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": -161.51135928779192,
+      "gibsonTm": -162.05679968981786
+    },
+    {
+      "sequence": "GA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": -162.6385928473622,
+      "gibsonTm": -162.05679968981786
+    },
+    {
+      "sequence": "GC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": -120.06050045296203,
+      "gibsonTm": -116.56464598679662
+    },
+    {
+      "sequence": "GC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": -128.78614997493534,
+      "gibsonTm": -116.56464598679662
+    },
+    {
+      "sequence": "GC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": -112.34266891937,
+      "gibsonTm": -116.56464598679662
+    },
+    {
+      "sequence": "GC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": -113.7575586299161,
+      "gibsonTm": -116.56464598679662
+    },
+    {
+      "sequence": "GG",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": -142.1961820354846,
+      "gibsonTm": -135.8464001166024
+    },
+    {
+      "sequence": "GG",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": -150.03074338460306,
+      "gibsonTm": -135.8464001166024
+    },
+    {
+      "sequence": "GG",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": -135.2271059884922,
+      "gibsonTm": -135.8464001166024
+    },
+    {
+      "sequence": "GG",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": -136.50751220413017,
+      "gibsonTm": -135.8464001166024
+    },
+    {
+      "sequence": "GT",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": -164.3814073446664,
+      "gibsonTm": -158.66457046381367
+    },
+    {
+      "sequence": "GT",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": -171.37436982311198,
+      "gibsonTm": -158.66457046381367
+    },
+    {
+      "sequence": "GT",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": -158.1046305963522,
+      "gibsonTm": -158.66457046381367
+    },
+    {
+      "sequence": "GT",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": -159.26185258103936,
+      "gibsonTm": -158.66457046381367
+    },
+    {
+      "sequence": "TA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": -216.39187047936096,
+      "gibsonTm": -214.60253888969774
+    },
+    {
+      "sequence": "TA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": -220.72921007312112,
+      "gibsonTm": -214.60253888969774
+    },
+    {
+      "sequence": "TA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": -212.40059173822078,
+      "gibsonTm": -214.60253888969774
+    },
+    {
+      "sequence": "TA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": -213.14358798222935,
+      "gibsonTm": -214.60253888969774
+    },
+    {
+      "sequence": "TC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": -167.62443151406524,
+      "gibsonTm": -162.05679968981786
+    },
+    {
+      "sequence": "TC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": -174.4319878992963,
+      "gibsonTm": -162.05679968981786
+    },
+    {
+      "sequence": "TC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": -161.51135928779192,
+      "gibsonTm": -162.05679968981786
+    },
+    {
+      "sequence": "TC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": -162.6385928473622,
+      "gibsonTm": -162.05679968981786
+    },
+    {
+      "sequence": "TG",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": -163.1667337215149,
+      "gibsonTm": -157.41895588634503
+    },
+    {
+      "sequence": "TG",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": -170.20198925362234,
+      "gibsonTm": -157.41895588634503
+    },
+    {
+      "sequence": "TG",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": -156.85616115542024,
+      "gibsonTm": -157.41895588634503
+    },
+    {
+      "sequence": "TG",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": -158.0193177960876,
+      "gibsonTm": -157.41895588634503
+    },
+    {
+      "sequence": "TT",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": -204.49009145021512,
+      "gibsonTm": -200.31584903651367
+    },
+    {
+      "sequence": "TT",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": -209.50880861149707,
+      "gibsonTm": -200.31584903651367
+    },
+    {
+      "sequence": "TT",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": -199.90348444058603,
+      "gibsonTm": -200.31584903651367
+    },
+    {
+      "sequence": "TT",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": -200.7550179619227,
+      "gibsonTm": -200.31584903651367
+    },
+    {
+      "sequence": "GAATTC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": -15.116287826061637,
+      "gibsonTm": -12.716263403586538
+    },
+    {
+      "sequence": "GAATTC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": -25.1702954738995,
+      "gibsonTm": -12.716263403586538
+    },
+    {
+      "sequence": "GAATTC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": -8.084860601675302,
+      "gibsonTm": -12.716263403586538
+    },
+    {
+      "sequence": "GAATTC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": -2.858676910110887,
+      "gibsonTm": -12.716263403586538
+    },
+    {
+      "sequence": "GCGCGCGC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": 42.74797701535965,
+      "gibsonTm": 44.73365959998432
+    },
+    {
+      "sequence": "GCGCGCGC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": 32.72532332147779,
+      "gibsonTm": 44.73365959998432
+    },
+    {
+      "sequence": "GCGCGCGC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": 49.279510106518444,
+      "gibsonTm": 44.73365959998432
+    },
+    {
+      "sequence": "GCGCGCGC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 56.10836893606597,
+      "gibsonTm": 44.73365959998432
+    },
+    {
+      "sequence": "ATATATAT",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": -13.840612829963902,
+      "gibsonTm": -11.768777756144402
+    },
+    {
+      "sequence": "ATATATAT",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": -24.192114207504005,
+      "gibsonTm": -11.768777756144402
+    },
+    {
+      "sequence": "ATATATAT",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": -6.9991757472282075,
+      "gibsonTm": -11.768777756144402
+    },
+    {
+      "sequence": "ATATATAT",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 0.2359881915769506,
+      "gibsonTm": -11.768777756144402
+    },
+    {
+      "sequence": "ACGTCGACGT",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": 36.980021545889656,
+      "gibsonTm": 38.73409498548472
+    },
+    {
+      "sequence": "ACGTCGACGT",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": 26.706756451706212,
+      "gibsonTm": 38.73409498548472
+    },
+    {
+      "sequence": "ACGTCGACGT",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": 43.40226194375987,
+      "gibsonTm": 38.73409498548472
+    },
+    {
+      "sequence": "ACGTCGACGT",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 51.72657866775228,
+      "gibsonTm": 38.73409498548472
+    },
+    {
+      "sequence": "CGTTCCAAAGATGTGGGCATGAGCTTAC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": 61.9240199979082,
+      "gibsonTm": 63.31726285961207
+    },
+    {
+      "sequence": "CGTTCCAAAGATGTGGGCATGAGCTTAC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": 52.52936782583936,
+      "gibsonTm": 63.31726285961207
+    },
+    {
+      "sequence": "CGTTCCAAAGATGTGGGCATGAGCTTAC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": 66.85195179761564,
+      "gibsonTm": 63.31726285961207
+    },
+    {
+      "sequence": "CGTTCCAAAGATGTGGGCATGAGCTTAC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": 78.38111682409658,
+      "gibsonTm": 63.31726285961207
+    },
+    {
+      "sequence": "AAAAAAAAAAAAAAAAAAAA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": 38.07547730859858,
+      "gibsonTm": 39.9200979379558
+    },
+    {
+      "sequence": "AAAAAAAAAAAAAAAAAAAA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": 28.743615977683874,
+      "gibsonTm": 39.9200979379558
+    },
+    {
+      "sequence": "AAAAAAAAAAAAAAAAAAAA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": 43.219230103979044,
+      "gibsonTm": 39.9200979379558
+    },
+    {
+      "sequence": "AAAAAAAAAAAAAAAAAAAA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": 53.68168902141912,
+      "gibsonTm": 39.9200979379558
+    },
+    {
+      "sequence": "GGGGGGGGGGGGGGGGGGGG",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": 73.73681726588853,
+      "gibsonTm": 75.93416859825334
+    },
+    {
+      "sequence": "GGGGGGGGGGGGGGGGGGGG",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": 62.647725601498735,
+      "gibsonTm": 75.93416859825334
+    },
+    {
+      "sequence": "GGGGGGGGGGGGGGGGGGGG",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": 79.86860800015893,
+      "gibsonTm": 75.93416859825334
+    },
+    {
+      "sequence": "GGGGGGGGGGGGGGGGGGGG",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": 92.3836273601093,
+      "gibsonTm": 75.93416859825334
+    },
+    {
+      "sequence": "CGA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": -76.18946666284589,
+      "gibsonTm": -69.45073522048997
+    },
+    {
+      "sequence": "CGA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": -86.0377267051262,
+      "gibsonTm": -69.45073522048997
+    },
+    {
+      "sequence": "CGA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": -68.1517655541202,
+      "gibsonTm": -69.45073522048997
+    },
+    {
+      "sequence": "CGA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": -67.33515283526242,
+      "gibsonTm": -69.45073522048997
+    },
+    {
+      "sequence": "CGATCG",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": 2.297838762640936,
+      "gibsonTm": 4.70022760956175
+    },
+    {
+      "sequence": "CGATCG",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": -7.796144993126973,
+      "gibsonTm": 4.70022760956175
+    },
+    {
+      "sequence": "CGATCG",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": 9.328404120249502,
+      "gibsonTm": 4.70022760956175
+    },
+    {
+      "sequence": "CGATCG",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 14.538661248492701,
+      "gibsonTm": 4.70022760956175
+    },
+    {
+      "sequence": "GGTCCACA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": 17.07188253269112,
+      "gibsonTm": 21.305665603862792
+    },
+    {
+      "sequence": "GGTCCACA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": 6.3573484701623215,
+      "gibsonTm": 21.305665603862792
+    },
+    {
+      "sequence": "GGTCCACA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": 24.116677426204433,
+      "gibsonTm": 21.305665603862792
+    },
+    {
+      "sequence": "GGTCCACA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": 31.53546543601618,
+      "gibsonTm": 21.305665603862792
+    },
+    {
+      "sequence": "GGTCCACATGTGGACC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": 51.78055132424686,
+      "gibsonTm": 52.98673428709719
+    },
+    {
+      "sequence": "GGTCCACATGTGGACC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": 41.73042002901332,
+      "gibsonTm": 52.98673428709719
+    },
+    {
+      "sequence": "GGTCCACATGTGGACC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": 57.529216634347904,
+      "gibsonTm": 52.98673428709719
+    },
+    {
+      "sequence": "GGTCCACATGTGGACC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 67.92102125225631,
+      "gibsonTm": 52.98673428709719
+    },
+    {
+      "sequence": "TAGAACGGCAAG",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": 35.85424148264076,
+      "gibsonTm": 38.814505907314356
+    },
+    {
+      "sequence": "TAGAACGGCAAG",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": 25.84976546991436,
+      "gibsonTm": 38.814505907314356
+    },
+    {
+      "sequence": "TAGAACGGCAAG",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": 41.888780987145594,
+      "gibsonTm": 38.814505907314356
+    },
+    {
+      "sequence": "TAGAACGGCAAG",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": 50.93028150577385,
+      "gibsonTm": 38.814505907314356
+    },
+    {
+      "sequence": "TAGAACGGCAAGCTTGCCGTTCTA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": 61.3833056326589,
+      "gibsonTm": 62.21258724223617
+    },
+    {
+      "sequence": "TAGAACGGCAAGCTTGCCGTTCTA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": 51.73132999770593,
+      "gibsonTm": 62.21258724223617
+    },
+    {
+      "sequence": "TAGAACGGCAAGCTTGCCGTTCTA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": 66.55626367044113,
+      "gibsonTm": 62.21258724223617
+    },
+    {
+      "sequence": "TAGAACGGCAAGCTTGCCGTTCTA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 77.9622025440778,
+      "gibsonTm": 62.21258724223617
+    },
+    {
+      "sequence": "TGTACGCATTAGAC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": 39.0249994051448,
+      "gibsonTm": 41.58548398725088
+    },
+    {
+      "sequence": "TGTACGCATTAGAC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": 29.29101034623858,
+      "gibsonTm": 41.58548398725088
+    },
+    {
+      "sequence": "TGTACGCATTAGAC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": 44.72413146739041,
+      "gibsonTm": 41.58548398725088
+    },
+    {
+      "sequence": "TGTACGCATTAGAC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": 54.21288894210272,
+      "gibsonTm": 41.58548398725088
+    },
+    {
+      "sequence": "TGTACGCATTAGACGTCTAATGCGTACA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": 60.6983882541378,
+      "gibsonTm": 61.40210361331725
+    },
+    {
+      "sequence": "TGTACGCATTAGACGTCTAATGCGTACA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": 51.3428216567213,
+      "gibsonTm": 61.40210361331725
+    },
+    {
+      "sequence": "TGTACGCATTAGACGTCTAATGCGTACA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": 65.60570898486168,
+      "gibsonTm": 61.40210361331725
+    },
+    {
+      "sequence": "TGTACGCATTAGACGTCTAATGCGTACA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 77.08636064234133,
+      "gibsonTm": 61.40210361331725
+    },
+    {
+      "sequence": "TTCCCGTGGGATAGTCGG",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": 54.748398190466844,
+      "gibsonTm": 56.89611879086647
+    },
+    {
+      "sequence": "TTCCCGTGGGATAGTCGG",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": 44.78410553360385,
+      "gibsonTm": 56.89611879086647
+    },
+    {
+      "sequence": "TTCCCGTGGGATAGTCGG",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": 60.334731945063254,
+      "gibsonTm": 56.89611879086647
+    },
+    {
+      "sequence": "TTCCCGTGGGATAGTCGG",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": 71.11031631044818,
+      "gibsonTm": 56.89611879086647
+    },
+    {
+      "sequence": "TTCCCGTGGGATAGTCGGCCGACTATCCCACGGGAA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": 72.44373239966319,
+      "gibsonTm": 73.02610656457739
+    },
+    {
+      "sequence": "TTCCCGTGGGATAGTCGGCCGACTATCCCACGGGAA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": 62.784791056921506,
+      "gibsonTm": 73.02610656457739
+    },
+    {
+      "sequence": "TTCCCGTGGGATAGTCGGCCGACTATCCCACGGGAA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": 77.36425362739942,
+      "gibsonTm": 73.02610656457739
+    },
+    {
+      "sequence": "TTCCCGTGGGATAGTCGGCCGACTATCCCACGGGAA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 89.87648330920354,
+      "gibsonTm": 73.02610656457739
+    },
+    {
+      "sequence": "CAACCATTAGAACATGGACC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": 50.4184866945011,
+      "gibsonTm": 52.32071048896995
+    },
+    {
+      "sequence": "CAACCATTAGAACATGGACC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": 40.79242627044357,
+      "gibsonTm": 52.32071048896995
+    },
+    {
+      "sequence": "CAACCATTAGAACATGGACC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": 55.72241350009102,
+      "gibsonTm": 52.32071048896995
+    },
+    {
+      "sequence": "CAACCATTAGAACATGGACC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": 66.50630848664213,
+      "gibsonTm": 52.32071048896995
+    },
+    {
+      "sequence": "CAACCATTAGAACATGGACCGGTCCATGTTCTAATGGTTG",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": 66.05488760185119,
+      "gibsonTm": 66.56573793175113
+    },
+    {
+      "sequence": "CAACCATTAGAACATGGACCGGTCCATGTTCTAATGGTTG",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": 56.73705404227218,
+      "gibsonTm": 66.56573793175113
+    },
+    {
+      "sequence": "CAACCATTAGAACATGGACCGGTCCATGTTCTAATGGTTG",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": 70.74703394776799,
+      "gibsonTm": 66.56573793175113
+    },
+    {
+      "sequence": "CAACCATTAGAACATGGACCGGTCCATGTTCTAATGGTTG",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 83.03066385360177,
+      "gibsonTm": 66.56573793175113
+    },
+    {
+      "sequence": "CCGTAACGTTGGCCGTTTCTGACAC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": 62.47291755142402,
+      "gibsonTm": 63.99857803589612
+    },
+    {
+      "sequence": "CCGTAACGTTGGCCGTTTCTGACAC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": 53.139353891067174,
+      "gibsonTm": 63.99857803589612
+    },
+    {
+      "sequence": "CCGTAACGTTGGCCGTTTCTGACAC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": 67.43945132613976,
+      "gibsonTm": 63.99857803589612
+    },
+    {
+      "sequence": "CCGTAACGTTGGCCGTTTCTGACAC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": 78.55577397177615,
+      "gibsonTm": 63.99857803589612
+    },
+    {
+      "sequence": "CCGTAACGTTGGCCGTTTCTGACACGTGTCAGAAACGGCCAACGTTACGG",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": 74.6616553491748,
+      "gibsonTm": 75.06594478609668
+    },
+    {
+      "sequence": "CCGTAACGTTGGCCGTTTCTGACACGTGTCAGAAACGGCCAACGTTACGG",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": 65.61007252947172,
+      "gibsonTm": 75.06594478609668
+    },
+    {
+      "sequence": "CCGTAACGTTGGCCGTTTCTGACACGTGTCAGAAACGGCCAACGTTACGG",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": 79.11775782887645,
+      "gibsonTm": 75.06594478609668
+    },
+    {
+      "sequence": "CCGTAACGTTGGCCGTTTCTGACACGTGTCAGAAACGGCCAACGTTACGG",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 91.40974971168117,
+      "gibsonTm": 75.06594478609668
+    },
+    {
+      "sequence": "GCCCCTACGCCGTGCTCTGTTACATCTGACGTATCACTAT",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": 68.97708866260763,
+      "gibsonTm": 69.98072147822143
+    },
+    {
+      "sequence": "GCCCCTACGCCGTGCTCTGTTACATCTGACGTATCACTAT",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": 59.683391509378,
+      "gibsonTm": 69.98072147822143
+    },
+    {
+      "sequence": "GCCCCTACGCCGTGCTCTGTTACATCTGACGTATCACTAT",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": 73.6548737066991,
+      "gibsonTm": 69.98072147822143
+    },
+    {
+      "sequence": "GCCCCTACGCCGTGCTCTGTTACATCTGACGTATCACTAT",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": 85.89391226717686,
+      "gibsonTm": 69.98072147822143
+    },
+    {
+      "sequence": "GCCCCTACGCCGTGCTCTGTTACATCTGACGTATCACTATATAGTGATACGTCAGATGTAACAGAGCACGGCGTAGGGGC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": 75.93007650874745,
+      "gibsonTm": 76.19025147125222
+    },
+    {
+      "sequence": "GCCCCTACGCCGTGCTCTGTTACATCTGACGTATCACTATATAGTGATACGTCAGATGTAACAGAGCACGGCGTAGGGGC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": 66.88780107679531,
+      "gibsonTm": 76.19025147125222
+    },
+    {
+      "sequence": "GCCCCTACGCCGTGCTCTGTTACATCTGACGTATCACTATATAGTGATACGTCAGATGTAACAGAGCACGGCGTAGGGGC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": 80.23616287721649,
+      "gibsonTm": 76.19025147125222
+    },
+    {
+      "sequence": "GCCCCTACGCCGTGCTCTGTTACATCTGACGTATCACTATATAGTGATACGTCAGATGTAACAGAGCACGGCGTAGGGGC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 93.1702621205041,
+      "gibsonTm": 76.19025147125222
+    },
+    {
+      "sequence": "GATATACATGTACCTCCCGGAGGTCTAGCCGCTTTTGACGAGAGTGGAGCGAGCATACAA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": 73.29111877450242,
+      "gibsonTm": 73.97356286742775
+    },
+    {
+      "sequence": "GATATACATGTACCTCCCGGAGGTCTAGCCGCTTTTGACGAGAGTGGAGCGAGCATACAA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": 64.10993540455968,
+      "gibsonTm": 73.97356286742775
+    },
+    {
+      "sequence": "GATATACATGTACCTCCCGGAGGTCTAGCCGCTTTTGACGAGAGTGGAGCGAGCATACAA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": 77.75009425854648,
+      "gibsonTm": 73.97356286742775
+    },
+    {
+      "sequence": "GATATACATGTACCTCCCGGAGGTCTAGCCGCTTTTGACGAGAGTGGAGCGAGCATACAA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": 90.5317895115578,
+      "gibsonTm": 73.97356286742775
+    },
+    {
+      "sequence": "GATATACATGTACCTCCCGGAGGTCTAGCCGCTTTTGACGAGAGTGGAGCGAGCATACAATTGTATGCTCGCTCCACTCTCGTCAAAAGCGGCTAGACCTCCGGGAGGTACATGTATATC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": 78.08024131442983,
+      "gibsonTm": 78.2560954023217
+    },
+    {
+      "sequence": "GATATACATGTACCTCCCGGAGGTCTAGCCGCTTTTGACGAGAGTGGAGCGAGCATACAATTGTATGCTCGCTCCACTCTCGTCAAAAGCGGCTAGACCTCCGGGAGGTACATGTATATC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": 69.06748018957404,
+      "gibsonTm": 78.2560954023217
+    },
+    {
+      "sequence": "GATATACATGTACCTCCCGGAGGTCTAGCCGCTTTTGACGAGAGTGGAGCGAGCATACAATTGTATGCTCGCTCCACTCTCGTCAAAAGCGGCTAGACCTCCGGGAGGTACATGTATATC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": 82.28675016517343,
+      "gibsonTm": 78.2560954023217
+    },
+    {
+      "sequence": "GATATACATGTACCTCCCGGAGGTCTAGCCGCTTTTGACGAGAGTGGAGCGAGCATACAATTGTATGCTCGCTCCACTCTCGTCAAAAGCGGCTAGACCTCCGGGAGGTACATGTATATC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 95.5514698644759,
+      "gibsonTm": 78.2560954023217
+    },
+    {
+      "sequence": "TCGATACCCATACTATGATTACCTACACGTTCCGTACAACGGACATGTCGACAGTTAAGAGGCCGACAGTCACCAACATGTAAACAGAAGCTACCAAGAGCATTACAGGCAATCTCACCA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": 76.11336284932241,
+      "gibsonTm": 76.4590088193005
+    },
+    {
+      "sequence": "TCGATACCCATACTATGATTACCTACACGTTCCGTACAACGGACATGTCGACAGTTAAGAGGCCGACAGTCACCAACATGTAAACAGAAGCTACCAAGAGCATTACAGGCAATCTCACCA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": 67.11520456648412,
+      "gibsonTm": 76.4590088193005
+    },
+    {
+      "sequence": "TCGATACCCATACTATGATTACCTACACGTTCCGTACAACGGACATGTCGACAGTTAAGAGGCCGACAGTCACCAACATGTAAACAGAAGCTACCAAGAGCATTACAGGCAATCTCACCA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": 80.3137054985666,
+      "gibsonTm": 76.4590088193005
+    },
+    {
+      "sequence": "TCGATACCCATACTATGATTACCTACACGTTCCGTACAACGGACATGTCGACAGTTAAGAGGCCGACAGTCACCAACATGTAAACAGAAGCTACCAAGAGCATTACAGGCAATCTCACCA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": 93.56168795290023,
+      "gibsonTm": 76.4590088193005
+    },
+    {
+      "sequence": "TCGATACCCATACTATGATTACCTACACGTTCCGTACAACGGACATGTCGACAGTTAAGAGGCCGACAGTCACCAACATGTAAACAGAAGCTACCAAGAGCATTACAGGCAATCTCACCATGGTGAGATTGCCTGTAATGCTCTTGGTAGCTTCTGTTTACATGTTGGTGACTGTCGGCCTCTTAACTGTCGACATGTCCGTTGTACGGAACGTGTAGGTAATCATAGTATGGGTATCGA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": 78.52209106084206,
+      "gibsonTm": 78.61054157733486
+    },
+    {
+      "sequence": "TCGATACCCATACTATGATTACCTACACGTTCCGTACAACGGACATGTCGACAGTTAAGAGGCCGACAGTCACCAACATGTAAACAGAAGCTACCAAGAGCATTACAGGCAATCTCACCATGGTGAGATTGCCTGTAATGCTCTTGGTAGCTTCTGTTTACATGTTGGTGACTGTCGGCCTCTTAACTGTCGACATGTCCGTTGTACGGAACGTGTAGGTAATCATAGTATGGGTATCGA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": 69.61083965301839,
+      "gibsonTm": 78.61054157733486
+    },
+    {
+      "sequence": "TCGATACCCATACTATGATTACCTACACGTTCCGTACAACGGACATGTCGACAGTTAAGAGGCCGACAGTCACCAACATGTAAACAGAAGCTACCAAGAGCATTACAGGCAATCTCACCATGGTGAGATTGCCTGTAATGCTCTTGGTAGCTTCTGTTTACATGTTGGTGACTGTCGGCCTCTTAACTGTCGACATGTCCGTTGTACGGAACGTGTAGGTAATCATAGTATGGGTATCGA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": 82.59332255289388,
+      "gibsonTm": 78.61054157733486
+    },
+    {
+      "sequence": "TCGATACCCATACTATGATTACCTACACGTTCCGTACAACGGACATGTCGACAGTTAAGAGGCCGACAGTCACCAACATGTAAACAGAAGCTACCAAGAGCATTACAGGCAATCTCACCATGGTGAGATTGCCTGTAATGCTCTTGGTAGCTTCTGTTTACATGTTGGTGACTGTCGGCCTCTTAACTGTCGACATGTCCGTTGTACGGAACGTGTAGGTAATCATAGTATGGGTATCGA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 96.08689405985439,
+      "gibsonTm": 78.61054157733486
+    },
+    {
+      "sequence": "GACGCGTACCGCGTGTGCCAGACCTCACTACGAGGTAGATGGTCAAGACAGAACCATACTCCCTACATCACAGTGCCTCGCCGCTGAATGGACTCGCGTGCCCTATACCTGATCGACAACATAGAACGATCGATGATCCACCGACATTTA",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": false,
+      "tm": 80.1467663020697,
+      "gibsonTm": 80.42363356878161
+    },
+    {
+      "sequence": "GACGCGTACCGCGTGTGCCAGACCTCACTACGAGGTAGATGGTCAAGACAGAACCATACTCCCTACATCACAGTGCCTCGCCGCTGAATGGACTCGCGTGCCCTATACCTGATCGACAACATAGAACGATCGATGATCCACCGACATTTA",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": false,
+      "tm": 71.19517524835408,
+      "gibsonTm": 80.42363356878161
+    },
+    {
+      "sequence": "GACGCGTACCGCGTGTGCCAGACCTCACTACGAGGTAGATGGTCAAGACAGAACCATACTCCCTACATCACAGTGCCTCGCCGCTGAATGGACTCGCGTGCCCTATACCTGATCGACAACATAGAACGATCGATGATCCACCGACATTTA",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": false,
+      "tm": 84.2885451149213,
+      "gibsonTm": 80.42363356878161
+    },
+    {
+      "sequence": "GACGCGTACCGCGTGTGCCAGACCTCACTACGAGGTAGATGGTCAAGACAGAACCATACTCCCTACATCACAGTGCCTCGCCGCTGAATGGACTCGCGTGCCCTATACCTGATCGACAACATAGAACGATCGATGATCCACCGACATTTA",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": false,
+      "tm": 97.60451292891003,
+      "gibsonTm": 80.42363356878161
+    },
+    {
+      "sequence": "GACGCGTACCGCGTGTGCCAGACCTCACTACGAGGTAGATGGTCAAGACAGAACCATACTCCCTACATCACAGTGCCTCGCCGCTGAATGGACTCGCGTGCCCTATACCTGATCGACAACATAGAACGATCGATGATCCACCGACATTTATAAATGTCGGTGGATCATCGATCGTTCTATGTTGTCGATCAGGTATAGGGCACGCGAGTCCATTCAGCGGCGAGGCACTGTGATGTAGGGAGTATGGTTCTGTCTTGACCATCTACCTCGTAGTGAGGTCTGGCACACGCGGTACGCGTC",
+      "concentrationNM": 250,
+      "sodiumMM": 50,
+      "selfComplementary": true,
+      "tm": 82.05687422961108,
+      "gibsonTm": 82.12761815253845
+    },
+    {
+      "sequence": "GACGCGTACCGCGTGTGCCAGACCTCACTACGAGGTAGATGGTCAAGACAGAACCATACTCCCTACATCACAGTGCCTCGCCGCTGAATGGACTCGCGTGCCCTATACCTGATCGACAACATAGAACGATCGATGATCCACCGACATTTATAAATGTCGGTGGATCATCGATCGTTCTATGTTGTCGATCAGGTATAGGGCACGCGAGTCCATTCAGCGGCGAGGCACTGTGATGTAGGGAGTATGGTTCTGTCTTGACCATCTACCTCGTAGTGAGGTCTGGCACACGCGGTACGCGTC",
+      "concentrationNM": 50,
+      "sodiumMM": 10,
+      "selfComplementary": true,
+      "tm": 73.17622826961173,
+      "gibsonTm": 82.12761815253845
+    },
+    {
+      "sequence": "GACGCGTACCGCGTGTGCCAGACCTCACTACGAGGTAGATGGTCAAGACAGAACCATACTCCCTACATCACAGTGCCTCGCCGCTGAATGGACTCGCGTGCCCTATACCTGATCGACAACATAGAACGATCGATGATCCACCGACATTTATAAATGTCGGTGGATCATCGATCGTTCTATGTTGTCGATCAGGTATAGGGCACGCGAGTCCATTCAGCGGCGAGGCACTGTGATGTAGGGAGTATGGTTCTGTCTTGACCATCTACCTCGTAGTGAGGTCTGGCACACGCGGTACGCGTC",
+      "concentrationNM": 1000,
+      "sodiumMM": 100,
+      "selfComplementary": true,
+      "tm": 86.0945986180252,
+      "gibsonTm": 82.12761815253845
+    },
+    {
+      "sequence": "GACGCGTACCGCGTGTGCCAGACCTCACTACGAGGTAGATGGTCAAGACAGAACCATACTCCCTACATCACAGTGCCTCGCCGCTGAATGGACTCGCGTGCCCTATACCTGATCGACAACATAGAACGATCGATGATCCACCGACATTTATAAATGTCGGTGGATCATCGATCGTTCTATGTTGTCGATCAGGTATAGGGCACGCGAGTCCATTCAGCGGCGAGGCACTGTGATGTAGGGAGTATGGTTCTGTCTTGACCATCTACCTCGTAGTGAGGTCTGGCACACGCGGTACGCGTC",
+      "concentrationNM": 500,
+      "sodiumMM": 1000,
+      "selfComplementary": true,
+      "tm": 99.60579880261162,
+      "gibsonTm": 82.12761815253845
+    }
+  ]
+}

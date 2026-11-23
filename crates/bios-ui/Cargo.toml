@@ -1,0 +1,21 @@
+[package]
+name = "bios-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+bios-core = { workspace = true }
+bios-layout = { workspace = true }
+bios-project = { workspace = true }
+chrono = { workspace = true }
+egui = { workspace = true }
+kurbo = { workspace = true }
+
+[dev-dependencies]
+# The tests that run the interface without a window need a font to lay text out with.
+egui = { workspace = true, features = ["default_fonts"] }

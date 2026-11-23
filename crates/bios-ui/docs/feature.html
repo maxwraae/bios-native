@@ -1,0 +1,64 @@
+<p>A feature is an annotated span of DNA: a stretch of bases, and something said about what it is.
+A promoter is a feature. A CDS is a feature. So is a primer, a terminator, an origin, a homology
+arm, and the whole plasmid.</p>
+
+<p>That is not a simplification for the documentation. It is the actual object model, and it is
+worth stating in full because everything else follows from it:</p>
+
+<blockquote>
+  <p>A feature is an annotated span of DNA. A feature can contain features. A feature can have
+  variants.</p>
+</blockquote>
+
+<h2>Why there is only one kind of thing</h2>
+
+<p>Most sequence tools make you sort your work into categories: annotations here, a separate parts
+library there, and some act of conversion between them. Bios has no second object. Nothing gets
+promoted into being reusable and nothing gets converted into being swappable.</p>
+
+<p>The practical consequence is that scale is not type. A promoter, a whole expression cassette and
+the finished plasmid are the same kind of thing at different sizes, so anything you can do to one
+you can do to the others. You can annotate inside a cassette that is itself annotated, because a
+feature contains features.</p>
+
+<h2>Seeing what is on your construct</h2>
+
+<p>Features are drawn on the map, and there are three ways to inspect them.</p>
+
+<ul>
+  <li><strong>Click one on the map.</strong> A card tells you what it is and what it is for, and
+  selects that span in the sequence view.</li>
+  <li><strong>Double click it.</strong> The edit form opens: name, category, direction, start and
+  end, and the free text describing what the feature serves and why it is there.</li>
+  <li><strong>Open the Contents panel</strong> on the left for the full list, grouped and
+  collapsible. Clicking a row selects it on the map.</li>
+</ul>
+
+<p>What is drawn is under your control. The <strong>Show on map</strong> popover carries the layer
+toggles and the label density, so a construct with sixty annotations can be read at whatever level
+of detail you actually want.</p>
+
+<h2>Annotating a new one</h2>
+
+<p>Select a stretch of sequence and give it a name. A floating readout follows any selection with
+its length, GC content, melting temperature and how many times those bases occur in the construct,
+which is usually enough to tell you whether the span you have grabbed is the one you meant.</p>
+
+<p>You can also ask the assistant to annotate for you. Because that adds something to the construct
+it arrives as a proposal rather than as a change, so you see the span it picked before it exists.</p>
+
+<h2>Features that are primers</h2>
+
+<p>A primer is a feature like any other, with one convenience on top: turn a selection into a named
+primer with <code>Cmd P</code>, and Bios reads the direction from the way you dragged. Hovering a
+primer gives you its melting temperature, GC, length and whether it binds anywhere else it should
+not.</p>
+
+<p>This is what makes the Order button work. It harvests every primer annotated on the construct
+into a CSV, deduplicated and with the numbers already filled in, so your order list is derived from
+the design rather than transcribed from it.</p>
+
+<h2>What comes next</h2>
+
+<p>The third rule above, that a feature can have variants, is the one with the most behind it. See
+<a href="/docs/variant">Variants</a>.</p>

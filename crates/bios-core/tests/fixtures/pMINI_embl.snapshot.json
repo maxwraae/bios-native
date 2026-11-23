@@ -1,0 +1,71 @@
+{
+ "source": "pMINI_embl.embl",
+ "ok": true,
+ "format": "embl",
+ "records": 1,
+ "name": "pMINI",
+ "circular": true,
+ "length": 240,
+ "size": 240,
+ "sequence": "atgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgc",
+ "description": "A tiny EMBL plasmid, so the format Bios claims to read has a file to prove it.",
+ "comments": [],
+ "notices": [],
+ "features": [
+  {
+   "name": "GFP",
+   "type": "CDS",
+   "start": 0,
+   "end": 179,
+   "strand": 1,
+   "locations": [
+    [
+     0,
+     59
+    ],
+    [
+     120,
+     179
+    ]
+   ],
+   "notes": [
+    [
+     "gene",
+     [
+      "gfp"
+     ]
+    ],
+    [
+     "product",
+     [
+      "green fluorescent protein"
+     ]
+    ]
+   ],
+   "color": null,
+   "arrowheadType": null,
+   "forward": true,
+   "exported": []
+  },
+  {
+   "name": "Ptest",
+   "type": "promoter",
+   "start": 60,
+   "end": 119,
+   "strand": -1,
+   "locations": null,
+   "notes": [
+    [
+     "note",
+     [
+      "a promoter that says \"hello\" in its note"
+     ]
+    ]
+   ],
+   "color": null,
+   "arrowheadType": null,
+   "forward": false,
+   "exported": []
+  }
+ ]
+}
