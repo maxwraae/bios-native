@@ -30,6 +30,7 @@ pub mod home;
 mod journal;
 mod project;
 pub mod recents;
+pub mod window;
 
 pub use folders::{FolderMeta, FolderPick, folder_candidates, folder_name_for, folder_stamp, item_file_name, pick_folder};
 pub use journal::{Actor, Entry};

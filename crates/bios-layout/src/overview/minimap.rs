@@ -19,6 +19,11 @@ pub const PAD_X: f64 = 44.0;
 /// A cut tick and the scrim: 2px down, 13 tall.
 pub const CUT_TOP: f64 = 2.0;
 pub const CUT_H: f64 = 13.0;
+/// A primer tick: half the band, so a forward one on the top edge and a reverse one on the bottom
+/// read apart without the band growing, and never narrower than this, a 20-mer being three
+/// thousandths of a 6 kb rail.
+pub const PRIMER_TICK_H: f64 = BAND / 2.0;
+pub const PRIMER_TICK_W: f64 = 3.0;
 /// Scale marks under the box.
 pub const MARK_TOP: f64 = 20.0;
 pub const MARK_MINOR_H: f64 = 2.5;
@@ -61,6 +66,46 @@ pub fn segments(features: &[NavFeature], l: i64) -> Vec<Seg> {
     // Stable, as the web's `sort` is: equal ranks keep their order.
     segs.sort_by(|a, b| a.0.total_cmp(&b.0));
     segs.into_iter().map(|(_, s)| s).collect()
+}
+
+/// A primer to mark on the rail: its footprint, 0-based inclusive (an end before the start wraps),
+/// and which way it reads.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NavPrimer {
+    pub start: i64,
+    pub end: i64,
+    pub forward: bool,
+}
+
+/// One primer's tick on the rail.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Tick {
+    /// Index into the primers handed in.
+    pub primer: usize,
+    pub left: f64,
+    pub width: f64,
+    pub forward: bool,
+}
+
+/// Primer ticks along the rail, origin-wrap aware and left to right. A primer is an oligo, not a
+/// stretch of the construct: drawn to scale it is a hair too thin to find, so a tick narrower than
+/// `min_width` (the painter's [`PRIMER_TICK_W`] as a fraction of the track) grows about its middle
+/// to that, and never off either end of the rail. A primer over the origin is two ticks, one at
+/// each end, which is how the wrap reads.
+pub fn primer_ticks(primers: &[NavPrimer], l: i64, min_width: f64) -> Vec<Tick> {
+    let min = min_width.clamp(0.0, 1.0);
+    let mut ticks: Vec<Tick> = primers
+        .iter()
+        .enumerate()
+        .flat_map(|(i, p)| {
+            split_span(p.start, p.end, l).into_iter().map(move |s| {
+                let width = s.width_frac.max(min);
+                Tick { primer: i, left: clamp(s.start_frac + s.width_frac / 2.0 - width / 2.0, 0.0, 1.0 - width), width, forward: p.forward }
+            })
+        })
+        .collect();
+    ticks.sort_by(|a, b| a.left.total_cmp(&b.left).then(a.primer.cmp(&b.primer)));
+    ticks
 }
 
 /// A scale mark: where, as a fraction, and whether it is a major one.
@@ -172,6 +217,57 @@ mod tests {
         let f = [NavFeature { start: 0, end: 99, rank: 5.0 }, NavFeature { start: 900, end: 99, rank: 1.0 }];
         let s = segments(&f, 1000);
         assert_eq!(s.iter().map(|s| s.feature).collect::<Vec<_>>(), vec![1, 1, 0]);
+    }
+
+    #[test]
+    fn a_primer_drawn_to_scale_would_vanish_so_its_tick_has_a_floor() {
+        // 20 bases of 6,000: two thousandths of the rail, grown about its middle to the floor.
+        let p = [NavPrimer { start: 2990, end: 3009, forward: true }];
+        let t = primer_ticks(&p, 6000, 0.01);
+        assert_eq!(t.len(), 1);
+        assert!((t[0].width - 0.01).abs() < 1e-12);
+        assert!((t[0].left - 0.495).abs() < 1e-12);
+        // A primer wide enough on its own keeps its own width.
+        let wide = primer_ticks(&[NavPrimer { start: 0, end: 599, forward: true }], 6000, 0.01);
+        assert_eq!(wide.first().map(|t| (t.left, t.width)), Some((0.0, 0.1)));
+    }
+
+    #[test]
+    fn a_primer_at_either_end_stays_on_the_rail() {
+        let ends = [NavPrimer { start: 0, end: 19, forward: true }, NavPrimer { start: 5980, end: 5999, forward: false }];
+        let t = primer_ticks(&ends, 6000, 0.01);
+        assert_eq!(t.len(), 2);
+        assert!((t[0].left - 0.0).abs() < 1e-12);
+        assert!((t[1].left - 0.99).abs() < 1e-12);
+        assert!(t.iter().all(|t| t.left >= 0.0 && t.left + t.width <= 1.0 + 1e-12));
+    }
+
+    #[test]
+    fn a_primer_over_the_origin_is_a_tick_at_each_end() {
+        let t = primer_ticks(&[NavPrimer { start: 5990, end: 9, forward: true }], 6000, 0.01);
+        assert_eq!(t.len(), 2);
+        assert_eq!(t.iter().map(|t| t.primer).collect::<Vec<_>>(), vec![0, 0]);
+        assert!((t[0].left - 0.0).abs() < 1e-12);
+        assert!((t[1].left - 0.99).abs() < 1e-12);
+    }
+
+    #[test]
+    fn ticks_read_left_to_right_whatever_order_the_primers_came_in() {
+        let p = [
+            NavPrimer { start: 4000, end: 4019, forward: true },
+            NavPrimer { start: 100, end: 119, forward: false },
+            NavPrimer { start: 2000, end: 2019, forward: true },
+        ];
+        let t = primer_ticks(&p, 6000, 0.01);
+        assert_eq!(t.iter().map(|t| t.primer).collect::<Vec<_>>(), vec![1, 2, 0]);
+        assert_eq!(t.iter().map(|t| t.forward).collect::<Vec<_>>(), vec![false, true, true]);
+        assert!(t.windows(2).all(|w| w[0].left <= w[1].left));
+    }
+
+    #[test]
+    fn no_primers_is_no_ticks() {
+        assert!(primer_ticks(&[], 6000, 0.01).is_empty());
+        assert!(primer_ticks(&[NavPrimer { start: 0, end: 19, forward: true }], 0, 0.01).is_empty());
     }
 
     #[test]

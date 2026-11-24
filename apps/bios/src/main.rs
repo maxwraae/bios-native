@@ -218,6 +218,8 @@ struct App {
     /// The tabs last written down, with the project they were in, so they are written down only
     /// when they change.
     tabs_seen: Option<(PathBuf, prefs::OpenTabs)>,
+    /// What is in front as last written down for an agent (`what_is_open`).
+    front_seen: Option<bios_project::window::Front>,
     tab_strip: TabStrip,
     /// The editor pane: which tracks show, the split, and how each construct's map is viewed.
     pane: pane::Pane,
@@ -314,6 +316,7 @@ impl App {
             nav: Nav::default(),
             tabs: Vec::new(),
             tabs_seen: None,
+            front_seen: None,
             tab_strip: TabStrip::default(),
             pane: pane::Pane::default(),
             build: build::Build::default(),
@@ -1547,13 +1550,17 @@ impl App {
                 })
                 .collect();
             let cuts: Vec<i64> = sites.iter().map(|s| i64::try_from(s.top_cut).unwrap_or(0)).collect();
+            // The rail marks the primers too (native only; see `navigator`), and the Binders layer
+            // takes them off it as it does their lane in the rows.
+            let primers = if self.pane.layers.binders { navigator::primers_of(c) } else { Vec::new() };
+            let rail = navigator::Rail { features: &features, primers: &primers, cuts: &cuts };
             // The seam draws the strip's window while the strip is up, and moves it (`seamWindow`).
             match strip.as_mut() {
                 Some(strip) => {
-                    navigator::show(ui, seam, length, &features, &cuts, &mut strip.vp, false);
+                    navigator::show(ui, seam, length, rail, &mut strip.vp, false);
                     strip.vp = bios_layout::strip::apply(strip.vp, bios_layout::strip::min_width(f64::from(rect.width()), length));
                 }
-                None => navigator::show(ui, seam, length, &features, &cuts, &mut view.map.vp, view.map.ring),
+                None => navigator::show(ui, seam, length, rail, &mut view.map.vp, view.map.ring),
             }
         }
         *self.pane.view(&key, c) = view;
@@ -1729,6 +1736,7 @@ impl eframe::App for App {
 
     fn on_exit(&mut self) {
         self.save();
+        self.unpublish_front();
         if let Some(store) = &mut self.prefs {
             // Nothing can be shown any more; what could not be written is only not remembered.
             let _ = store.flush();
@@ -1788,6 +1796,7 @@ impl App {
         self.autosave(ui.ctx());
         self.guard_quit(ui.ctx());
         self.remember_tabs();
+        self.publish_front();
         if let Some(store) = &mut self.prefs {
             // Settings are written a moment after they change; an idle window has to be woken for it.
             if let Some(deadline) = store.tick(Instant::now()).next_deadline {

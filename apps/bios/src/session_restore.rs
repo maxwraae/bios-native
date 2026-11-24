@@ -1,15 +1,17 @@
 //! Coming back to where you were, and not leaving work behind: a project's open tabs, and the one
 //! in front, are put back when it opens again (web: workspace/tabs.ts with `restoreTabs`, the
 //! `openTabs` and `activeTab` prefs), and quitting with a change that could not be saved asks
-//! first (platform/unsaved.ts, `hasUnsavedWork`).
+//! first (platform/unsaved.ts, `hasUnsavedWork`). Also what is in front, written down for an
+//! agent working beside the window (`what_is_open`).
 
 use std::path::Path;
 
 use bios_project::ConstructId;
+use bios_project::window::{self, Front, Selection, ShownPlasmid, ShownProject, Tab};
 use craft_dialogs::{Message, MessageButtons, MessageLevel};
 
 use crate::prefs::OpenTabs;
-use crate::{App, Then};
+use crate::{App, Then, label};
 
 impl App {
     fn tabs_key(&self) -> Option<String> {
@@ -44,6 +46,55 @@ impl App {
                     prefs.projects.open_tabs.insert(key, now);
                 }
             });
+        }
+    }
+
+    /// What the window shows now, as `what_is_open` reports it.
+    pub(crate) fn front(&self) -> Front {
+        let Some(session) = &self.session else {
+            return Front { place: "projects".into(), ..Front::default() };
+        };
+        let project = session.project();
+        let path_of = |id: &ConstructId| self.listing.iter().find(|l| l.id == *id).map(|l| (label(&l.path), l.name.clone()));
+        let plasmid = self.opened.as_ref().map(|o| ShownPlasmid {
+            id: o.id.as_str().to_string(),
+            path: path_of(&o.id).map_or_else(|| o.construct.name.clone(), |(path, _)| path),
+            name: o.construct.name.clone(),
+            length: o.construct.len(),
+            circular: o.construct.circular,
+        });
+        let selection = self.opened.as_ref().and_then(|o| o.editing.selection()).map(|(start, end)| Selection { start: start + 1, end: end + 1 });
+        Front {
+            project: Some(ShownProject { path: project.root().to_path_buf(), name: project.name().to_string() }),
+            place: self.place.label().to_lowercase(),
+            plasmid,
+            tabs: self.tabs.iter().filter_map(path_of).map(|(path, name)| Tab { path, name }).collect(),
+            selection,
+        }
+    }
+
+    /// Writes down what is in front, beside the list of opened folders, when it changed. A test
+    /// or a picture keeps that list in memory, and writes nothing.
+    pub(crate) fn publish_front(&mut self) {
+        let Some(file) = self.recents.file().map(window::file_beside) else {
+            return;
+        };
+        let now = self.front();
+        // Asked every frame: only a change goes to the disk.
+        if self.front_seen.as_ref() == Some(&now) {
+            return;
+        }
+        // What could not be written is tried again on the next change.
+        if window::publish(&file, &now).is_ok() {
+            self.front_seen = Some(now);
+        }
+    }
+
+    /// The window is closing: nothing is in front any more.
+    pub(crate) fn unpublish_front(&mut self) {
+        if let Some(file) = self.recents.file().map(window::file_beside) {
+            // Nothing can be shown any more; a window that is gone is also told by its process.
+            let _ = window::closed(&file);
         }
     }
 

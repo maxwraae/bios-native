@@ -74,7 +74,7 @@ fn seam(vp: &mut Viewport, batches: Vec<Vec<Event>>) {
     theme::install_fonts(&ctx);
     let rect = Rect::from_min_max(pos2(0.0, 532.0), pos2(800.0, 600.0));
     for events in std::iter::once(Vec::new()).chain(batches) {
-        let out = ctx.run_ui(input(events), |ui| navigator::show(ui, rect, 6000, &[], &[], vp, false));
+        let out = ctx.run_ui(input(events), |ui| navigator::show(ui, rect, 6000, navigator::Rail::default(), vp, false));
         out.drop_without_applying_deltas();
     }
 }

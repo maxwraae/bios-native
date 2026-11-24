@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use bios_mcp::BiosTools;
 use bios_project::recents::Recents;
+use bios_project::window::{self, Front, ShownProject};
 use serde_json::{Value, json};
 
 fn fixture(name: &str) -> PathBuf {
@@ -182,5 +183,39 @@ fn the_update_tools_are_listed_without_a_project_parameter() {
     let schema = |name: &str| tools.iter().find(|t| t["name"] == name).unwrap()["inputSchema"]["properties"].clone();
     assert!(schema("check_for_update").get("project").is_none());
     assert!(schema("update_bios").get("project").is_none());
+    assert!(schema("what_is_open").get("project").is_none());
     assert!(schema("read_plasmid").get("project").is_some());
+}
+
+/// With a window open on one of several projects, a call that names no project works there; a
+/// `project` named still wins, and once the window quits leaving it out is refused again.
+#[test]
+fn leaving_out_the_project_means_the_one_open_in_the_window() {
+    let (_dir, file, plain) = place();
+    let other = plain.parent().unwrap().join("Other");
+    fs::create_dir(&other).unwrap();
+    fs::copy(fixture("wrap_demo.gb"), other.join("only_here.gb")).unwrap();
+    let shown = window::file_beside(&file);
+    let front = Front { project: Some(ShownProject { path: plain.clone(), name: "Downloads".into() }), place: "edit".into(), ..Front::default() };
+    window::publish(&shown, &front).unwrap();
+    let replies = calls(
+        &file,
+        &[
+            ("open_project", json!({"path": plain.display().to_string()})),
+            ("open_project", json!({"path": other.display().to_string()})),
+            ("what_is_open", json!({})),
+            ("read_plasmid", json!({"plasmid": "pUC19"})),
+            ("read_plasmid", json!({"plasmid": "only_here", "project": "Other"})),
+        ],
+    );
+    let open = body(&replies[2]);
+    assert_eq!(open["window_open"], true);
+    assert_eq!(open["project"]["path"], plain.display().to_string());
+    assert_eq!(body(&replies[3])["name"], "pUC19");
+    body(&replies[4]);
+
+    window::closed(&shown).unwrap();
+    let replies = calls(&file, &[("what_is_open", json!({})), ("read_plasmid", json!({"plasmid": "pUC19"}))]);
+    assert_eq!(body(&replies[0])["window_open"], false);
+    assert!(error(&replies[1]).contains("say which project"));
 }

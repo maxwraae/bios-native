@@ -42,3 +42,45 @@ fn a_projects_tabs_and_the_one_in_front_come_back_and_a_plasmid_gone_since_is_sk
     assert_eq!(app.tabs, [first, third.clone()]);
     assert_eq!(app.opened.as_ref().map(|o| o.id.clone()), Some(third));
 }
+
+#[test]
+fn what_is_in_front_is_written_down_for_an_agent_as_it_changes_and_closed_on_quit() {
+    use bios_project::recents::{self, Recents};
+    use bios_project::window;
+
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("Lab");
+    let file = window::file_beside(&dir.path().join(recents::FILE));
+    let mut app = App::new(None, Duration::ZERO);
+    app.recents = Recents::at(&dir.path().join(recents::FILE));
+    app.publish_front();
+    let front = window::live(&file).unwrap().front;
+    assert_eq!((front.place.as_str(), front.project), ("projects", None));
+
+    app.answered(Then::NewProject, Answer::Paths(vec![root.clone()]));
+    app.answered(Then::Import, Answer::Paths(vec![fixture("wrap_demo.gb"), fixture("pUC19.gb")]));
+    let puc = app.listing.iter().find(|l| l.name == "pUC19").unwrap().id.clone();
+    app.open_construct(&puc);
+    app.publish_front();
+    let front = window::live(&file).unwrap().front;
+    assert_eq!(front.project.as_ref().map(|p| p.name.as_str()), Some("Lab"));
+    assert_eq!(front.place, "edit");
+    let plasmid = front.plasmid.unwrap();
+    assert_eq!((plasmid.path.as_str(), plasmid.name.as_str(), plasmid.length, plasmid.circular), ("pUC19", "pUC19", 2686, true));
+    assert_eq!(front.tabs.len(), 2);
+    assert_eq!(front.selection, None);
+
+    // Selecting bases 10..20 as a person counts them; an unchanged frame writes nothing.
+    app.opened.as_mut().unwrap().editing.select(9, 19);
+    app.publish_front();
+    let written = window::read(&file).unwrap();
+    assert_eq!(written.front.selection, Some(window::Selection { start: 10, end: 20 }));
+    std::fs::write(&file, "untouched").unwrap();
+    app.publish_front();
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), "untouched", "nothing changed, so nothing was written");
+    window::publish(&file, &app.front()).unwrap();
+
+    app.unpublish_front();
+    assert!(window::read(&file).is_some_and(|r| !r.open));
+    assert_eq!(window::live(&file), None);
+}

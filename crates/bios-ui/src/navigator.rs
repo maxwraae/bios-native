@@ -6,10 +6,17 @@
 //! `bios_layout::overview::navigate`.
 //!
 //! The web settles the window over 0.2s when the rail is clicked; here it lands at once.
+//!
+//! Primers are native only (Max, 2026-11-23): the web's rail draws none, and nor does either
+//! app's map, a primer having its own lane in the sequence rows. They are here because the rail
+//! is the one place the whole construct is in sight at once, and a plasmid's primers are what a
+//! person looks for on it. See [`primers_of`] and `PARITY.md`.
 
+use bios_core::{Construct, Strand};
+use bios_layout::overview::display::is_primer_bind;
 use bios_layout::overview::minimap::{
-    self, BAND, BAND_TOP, CUT_H, CUT_TOP, FRAME_H, GRIP_W, MARK_MAJOR_H, MARK_MINOR_H, MARK_TOP, NavFeature, PAD_X, PAD_Y, TEXT_TOP, TRACK_H,
-    WINDOW_MIN_W,
+    self, BAND, BAND_TOP, CUT_H, CUT_TOP, FRAME_H, GRIP_W, MARK_MAJOR_H, MARK_MINOR_H, MARK_TOP, NavFeature, NavPrimer, PAD_X, PAD_Y, PRIMER_TICK_H,
+    PRIMER_TICK_W, TEXT_TOP, TRACK_H, WINDOW_MIN_W,
 };
 use bios_layout::overview::navigate::{self, Grip};
 use bios_layout::overview::viewport::Viewport;
@@ -23,6 +30,32 @@ use crate::theme::{self, Shadow, Weight};
 pub struct Feature {
     pub nav: NavFeature,
     pub color: Color32,
+}
+
+/// What the rail has of the construct: its features in the map's own tints, its primers and the
+/// enzyme cuts on it.
+#[derive(Clone, Copy, Default)]
+pub struct Rail<'a> {
+    pub features: &'a [Feature],
+    /// Empty when the construct has none, or the Binders layer is off, and the rail is then
+    /// exactly what it was before primers were drawn on it.
+    pub primers: &'a [NavPrimer],
+    pub cuts: &'a [i64],
+}
+
+/// The construct's primers as the rail marks them: the `primer_bind` features, which are the ones
+/// the rows draw in their oligo lane. A held binder or one of Find's hits is not the construct's
+/// own and is left to that lane.
+pub fn primers_of(c: &Construct) -> Vec<NavPrimer> {
+    c.features
+        .iter()
+        .filter(|f| is_primer_bind(&f.kind) && !bios_core::parts::is_part(f))
+        .map(|f| NavPrimer {
+            start: i64::try_from(f.start).unwrap_or(i64::MAX),
+            end: i64::try_from(f.end).unwrap_or(i64::MAX),
+            forward: f.strand == Strand::Forward,
+        })
+        .collect()
 }
 
 /// A press on the window still down: what it took hold of, where, and the window it found.
@@ -40,7 +73,8 @@ const PANE_SHADOW: &[Shadow] = &[Shadow { y: 1.0, blur: 2.0, spread: 0.0, color:
 /// Draws the seam in `rect` (the full-bleed band at the pane's floor, `--navigator-h` tall) and
 /// moves `vp` as the hand asks. `ring` is the map style's choice, which decides ring or line as
 /// the width changes.
-pub fn show(ui: &mut Ui, rect: Rect, l: i64, features: &[Feature], cuts: &[i64], vp: &mut Viewport, ring: bool) {
+pub fn show(ui: &mut Ui, rect: Rect, l: i64, rail: Rail<'_>, vp: &mut Viewport, ring: bool) {
+    let Rail { features, primers, cuts } = rail;
     let painter = ui.painter().with_clip_rect(rect);
     painter.rect_filled(rect, 0.0, theme::CELL_SUNKEN);
     painter.hline(rect.x_range(), rect.top() + 0.5, Stroke::new(1.0, theme::HAIRLINE));
@@ -90,6 +124,14 @@ pub fn show(ui: &mut Ui, rect: Rect, l: i64, features: &[Feature], cuts: &[i64],
         painter.rect_filled(band(CUT_TOP, CUT_H, 0.0, w.left.max(0.0)), 0.0, scrim);
         let right = w.left + w.width;
         painter.rect_filled(band(CUT_TOP, CUT_H, right, 1.0 - right), 0.0, scrim);
+    }
+    // Primers, in the primer colour the rows and the primer card use, over the features and over
+    // the scrim: a 20-mer is three thousandths of the rail, so one dimmed for being outside the
+    // window would be no mark at all. Half the band, on its top edge reading forward and its
+    // bottom reading reverse, the way the rows hang their primer lanes off the duplex.
+    for t in minimap::primer_ticks(primers, l, PRIMER_TICK_W / f64::from(tw)) {
+        let top = if t.forward { BAND_TOP } else { BAND_TOP + BAND - PRIMER_TICK_H };
+        feature_clip.rect_filled(band(top, PRIMER_TICK_H, t.left, t.width), CornerRadius::same(1), theme::PRIMER_EDGE);
     }
     for m in minimap::marks(l) {
         let (h, a) = if m.major { (MARK_MAJOR_H, 1.0) } else { (MARK_MINOR_H, 0.65) };

@@ -58,7 +58,8 @@ pub struct Layers {
     /// "Parts" (`layerVisibility.parts`): the lane of parts in the rows. On by default.
     pub parts: bool,
     /// "Binders" (`layerVisibility.primers`): the whole oligo lane in the rows: made primers, held
-    /// binders and Find's alignments. The web's map draws no oligos, and neither does this one.
+    /// binders and Find's alignments, and with them the primer ticks on the navigator rail. The
+    /// web's map draws no oligos, and neither does this one.
     pub binders: bool,
 }
 

@@ -102,7 +102,7 @@ impl CommandSpec {
     }
 
     /// Whether the command needs a project at all. The ones that act on Bios itself
-    /// (`check_for_update`, `update_bios`) do not, and run in [`Session::for_app`].
+    /// (`check_for_update`, `update_bios`, `what_is_open`) do not, and run in [`Session::for_app`].
     pub fn needs_project(&self) -> bool {
         !commands::is_app_wide(self.name)
     }
@@ -150,6 +150,9 @@ pub struct Session {
     control: std::sync::Mutex<verify::Control>,
     /// What `check_for_update` and `update_bios` ask, in place of the one the program set up.
     updater: Option<std::sync::Arc<dyn update::Updater>>,
+    /// Where the window writes down what it shows (`what_is_open`), in place of the one in Bios's
+    /// settings folder.
+    window_file: Option<std::path::PathBuf>,
 }
 
 /// The Bios server this session may share projects through.
@@ -203,6 +206,7 @@ impl Session {
             mapper: verify::default_mapper(),
             control: std::sync::Mutex::new(verify::Control::default()),
             updater: None,
+            window_file: None,
         }
     }
 
@@ -219,6 +223,17 @@ impl Session {
     pub fn with_updater(mut self, updater: std::sync::Arc<dyn update::Updater>) -> Self {
         self.updater = Some(updater);
         self
+    }
+
+    /// The same session, reading what the window shows from `file` instead of the one in Bios's
+    /// settings folder ([`bios_project::window::standard_file`]).
+    pub fn with_window_file(mut self, file: std::path::PathBuf) -> Self {
+        self.window_file = Some(file);
+        self
+    }
+
+    pub(crate) fn window_file(&self) -> Option<std::path::PathBuf> {
+        self.window_file.clone().or_else(bios_project::window::standard_file)
     }
 
     pub(crate) fn updater(&self) -> Option<std::sync::Arc<dyn update::Updater>> {

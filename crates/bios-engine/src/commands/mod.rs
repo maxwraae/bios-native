@@ -5,6 +5,7 @@ mod batch;
 mod browse;
 mod build;
 mod copy;
+mod design;
 mod features;
 mod files;
 mod gibson;
@@ -18,6 +19,7 @@ mod share;
 mod structure;
 mod update;
 mod verify;
+mod window;
 
 use bios_core::{Construct, Feature, Strand, genbank_write};
 use serde_json::{Value, json};
@@ -25,6 +27,7 @@ use serde_json::{Value, json};
 use crate::{CommandSpec, Kind, Param, refs};
 
 pub static ALL: &[&[CommandSpec]] = &[
+    window::COMMANDS,
     browse::COMMANDS,
     files::COMMANDS,
     read::COMMANDS,
@@ -34,6 +37,7 @@ pub static ALL: &[&[CommandSpec]] = &[
     structure::COMMANDS,
     features::COMMANDS,
     primers::COMMANDS,
+    design::COMMANDS,
     pcr::COMMANDS,
     gibson::COMMANDS,
     build::COMMANDS,
@@ -117,5 +121,5 @@ pub(crate) fn feature_summary(construct: &Construct, index: usize, f: &Feature) 
 
 /// Whether the command acts on Bios itself rather than on a project.
 pub(crate) fn is_app_wide(name: &str) -> bool {
-    update::COMMANDS.iter().any(|c| c.name == name)
+    update::COMMANDS.iter().chain(window::COMMANDS).any(|c| c.name == name)
 }

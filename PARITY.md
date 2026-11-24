@@ -53,7 +53,7 @@ plate grid and BLAST in Verify, project avatars and invitations.
 | View modes: map, both, sequence | `editor/MapControls.tsx` | matches | |
 | Map style: circular, linear, fold | `editor/MapControls.tsx` | partial (fold greyed: Bios cannot fold) | |
 | Floating glass toolbar | `MapControls.tsx`, `HistoryControls.tsx` | matches (scrim blur not drawn) | toolbar+nav 100% |
-| Navigator strip with range label | `editor/overview/MapMinimap.tsx` | matches | |
+| Navigator strip with range label | `editor/overview/MapMinimap.tsx` | matches, with one addition **on purpose** (Max, 2026-11-23): the rail marks the construct's primers, which the web's rail does not (neither app's map draws oligos; they have their own lane in the rows). Each is a tick in the primer colour inside the feature band, at least 3px wide so a 20-mer on a 6 kb plasmid is still findable, half the band tall on its top edge reading forward and its bottom reading reverse, as the rows hang their primer lanes off the duplex. Drawn over the features and over the window's scrim, so one outside the window is as easy to find as one inside; a primer over the origin is a tick at each end. The Binders layer takes them off the rail as it does their lane. A construct with no primers draws exactly as before | |
 | Zoom and pan on the map | `overview/PlasmidOverview.tsx`, `viewport.ts`, `useViewport.ts` | matches (the zoom eases toward an accumulating target at `ZOOM_RATE` 22, frame-rate independent; a circular map unrolls into the line between widths 0.62 and 0.3, `renderMorph`: backbone, bands, heads and names along the band, no scale or cuts mid-unroll, as the web; clicks mid-unroll read off the ring or the line by the viewport's projection and catch no feature, as the web's `fracAt`) | widths 1 / 0.5 / 0.4 / 0.3 against the web: same drawing |
 | The flywheel (wind a ring up, it spins, sparks, blurs, burns and rolls off; Go get it) | `overview/flywheel.ts`, `useFlywheel.ts`, `PlasmidOverview.tsx` (carriage, `Flames`, `RpmReadout`), `styles.css` `.overview-rolled` | matches (physics and its 22 tests ported exactly; the blur is five faint copies of the ring, egui having no blur filter; the glow is drawn where browsers draw it, inside the rim; the spark seed starts at 1, not the clock; never turned off for reduced motion) | each stage against the web, caught with `--flywheel` |
 | Cut-site names on the map | `PlasmidOverview.tsx` `layoutLineAnnotations` | matches | map 100% |
@@ -174,6 +174,13 @@ from its card goes to the system Trash after an inline confirm, and can be put b
 its files, and becomes one (`bios.json`, `.bios/`) on its first change. The recent folders are the
 registry the window, `bios-cli` and MCP share. One window only: eframe can draw more viewports, but
 each would need its own copy of the window's whole state, which is not cheap today.
+
+Native only (Max, 2026-11-23): primer **design**. The web app checks and draws a primer someone
+has already chosen; it never works one out. `design_primers`, `design_mutagenesis_primers` and
+`check_primer` do (`bios-core::primer_design`), so an agent on MCP has no reason to reach for an
+outside primer tool. Bios's own design from published thermodynamics — the nearest-neighbour Tm
+already in `seq::tm` and the criteria a cloner applies by hand — not a port of any designer. A
+designed pair is kept with `add_primer`, which is still the only way a primer reaches a file.
 
 ## Primers, side by side (2026-11-22)
 

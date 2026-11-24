@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 
 use bios_engine::{CommandSpec, Effect, Kind, Session};
 use bios_project::recents::{self, Recents};
+use bios_project::window;
 use bios_project::{Actor, Project, Who};
 use craft_mcp_server::{Info, Server, Tools, object, text_result, tool};
 use serde_json::{Map, Value, json};
@@ -32,8 +33,12 @@ Bios is a workspace for designing DNA. A project is any folder on this computer:
 
 Start with list_projects: the folders opened in Bios, with each one's path. Every other tool takes `project`: a folder's name as list_projects shows it, or any folder's absolute path (that folder is opened and joins the list, as open_project does). Opening or reading a folder writes nothing into it; the first change makes it a Bios project (a bios.json and a hidden .bios folder beside its files). A plasmid can also be written as \"Project/path\" with no `project`. Tools that take a second plasmid (from_plasmid, from) look for it in the same project. Make a new project with create_project only when the person asks for one.";
 
+const DEFAULT_PROJECT: &str = "\
+When you leave `project` out and the plasmid is not written as \"Project/path\", the tool works in the project open in the Bios window (what_is_open names it). Pass `project` to work anywhere else; it always wins.";
+
 const INSTRUCTIONS: &str = "\
 How to work here:
+- The person works in the Bios window beside you. Call what_is_open first, and again whenever they refer to what is on their screen (\"this plasmid\", \"the open one\", \"here\", \"the selection\"): it names the project, the plasmid in front, the open tabs and the selected bases. \"This plasmid\" means its `plasmid`. If no window is open, ask which plasmid they mean.
 - Find plasmids with list_plasmids or find_plasmid. Address a plasmid by its path (\"backbones/pUC19\"), its name if unique, or its id.
 - Read before you edit. read_plasmid returns a `version`; every edit needs the version it was made against. If the plasmid changed in the meantime the edit is refused with CONFLICT and nothing is saved: read it again and redo the edit.
 - Positions are 1-based and inclusive, as a biologist counts them. On a circular plasmid start > end runs through the origin.
@@ -69,6 +74,9 @@ struct Many {
     /// Where the commands that act on Bios itself run (`check_for_update`, `update_bios`), made at
     /// the first such call.
     app: Option<Box<Session>>,
+    /// Where the Bios window writes down what it shows (`what_is_open`): beside the list of
+    /// opened folders, or in Bios's settings folder.
+    window: Option<PathBuf>,
 }
 
 impl BiosTools {
@@ -120,7 +128,11 @@ fn text_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
 
 impl Many {
     fn new(source: Source, who: Who) -> Many {
-        Many { source, who, sessions: HashMap::new(), app: None }
+        let window = match &source {
+            Source::Recent(recents) => recents.file().map(window::file_beside),
+            Source::Folder(_) => window::standard_file(),
+        };
+        Many { source, who, sessions: HashMap::new(), app: None, window }
     }
 
     /// The projects, each by its folder's name.
@@ -302,7 +314,11 @@ impl Many {
     /// The session the commands that act on Bios itself run in.
     fn app_session(&mut self) -> Result<&Session, String> {
         if self.app.is_none() {
-            self.app = Some(Box::new(Session::for_app(self.who.clone()).map_err(|failure| failure.0)?));
+            let mut app = Session::for_app(self.who.clone()).map_err(|failure| failure.0)?;
+            if let Some(file) = &self.window {
+                app = app.with_window_file(file.clone());
+            }
+            self.app = Some(Box::new(app));
         }
         self.app.as_deref().ok_or_else(|| "no session for Bios itself".to_string())
     }
@@ -320,6 +336,9 @@ impl Many {
             }
         }
         let projects = self.projects()?;
+        if let Some(front) = self.window_project(&projects) {
+            return Ok(front);
+        }
         match projects.len() {
             1 => projects.into_iter().next().map(|(_, p)| p).ok_or_else(|| "no projects".into()),
             0 => Err(match &self.source {
@@ -328,6 +347,17 @@ impl Many {
             }),
             _ => Err(format!("say which project with `project`. The projects are: {}", names(&projects))),
         }
+    }
+}
+
+impl Many {
+    /// The project open in the Bios window, when a window is running and that project is one this
+    /// connection serves: what a call that names no project means.
+    fn window_project(&self, projects: &[(String, Project)]) -> Option<Project> {
+        let shown = window::live(self.window.as_deref()?)?.front.project?;
+        let same = |root: &Path| root == shown.path || root.canonicalize().ok().is_some_and(|r| Some(r) == shown.path.canonicalize().ok());
+        let (_, found) = projects.iter().find(|(_, p)| same(p.root()))?;
+        Project::open(found.root()).ok()
     }
 }
 
@@ -373,7 +403,7 @@ fn definition(spec: &CommandSpec) -> Value {
 fn in_a_project(spec: &CommandSpec) -> Value {
     let mut def = definition(spec);
     let schema = &mut def["inputSchema"];
-    let project = json!({ "type": "string", "description": "The project to work in: its folder name as list_projects shows it, or a folder's absolute path. May be left out when the plasmid is written as \"Project/path\"." });
+    let project = json!({ "type": "string", "description": "The project to work in: its folder name as list_projects shows it, or a folder's absolute path. May be left out when the plasmid is written as \"Project/path\", or to work in the project open in the Bios window." });
     if let Some(props) = schema["properties"].as_object_mut() {
         let mut with = Map::new();
         with.insert("project".into(), project);
@@ -464,8 +494,8 @@ impl Tools for BiosTools {
         match &self.scope {
             Scope::One(session) => format!("{ONE_PROJECT}\n\n{INSTRUCTIONS}\n\nThis project is \"{}\".", session.project().name()),
             Scope::Many(many) => match &many.source {
-                Source::Folder(root) => format!("{HOME}\n\n{INSTRUCTIONS}\n\nThe folder of projects is {}.", root.display()),
-                Source::Recent(_) => format!("{RECENT}\n\n{INSTRUCTIONS}"),
+                Source::Folder(root) => format!("{HOME}\n\n{DEFAULT_PROJECT}\n\n{INSTRUCTIONS}\n\nThe folder of projects is {}.", root.display()),
+                Source::Recent(_) => format!("{RECENT}\n\n{DEFAULT_PROJECT}\n\n{INSTRUCTIONS}"),
             },
         }
     }

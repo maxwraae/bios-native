@@ -27,6 +27,7 @@ pub mod parts;
 pub mod pcr;
 pub mod primer;
 pub mod primer_binding;
+pub mod primer_design;
 pub mod primer_quality;
 pub mod reads;
 pub mod search;
