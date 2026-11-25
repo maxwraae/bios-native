@@ -404,7 +404,7 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "bios"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "bios-core",
  "bios-engine",
@@ -430,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "bios-cli"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "bios-engine",
  "bios-mcp",
@@ -442,7 +442,7 @@ dependencies = [
 
 [[package]]
 name = "bios-core"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "crc32fast",
  "flate2",
@@ -452,7 +452,7 @@ dependencies = [
 
 [[package]]
 name = "bios-engine"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "bios-core",
  "bios-mapper",
@@ -468,14 +468,14 @@ dependencies = [
 
 [[package]]
 name = "bios-layout"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "bios-core",
 ]
 
 [[package]]
 name = "bios-mapper"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "bios-core",
  "flate2",
@@ -483,7 +483,7 @@ dependencies = [
 
 [[package]]
 name = "bios-mcp"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "base64",
  "bios-engine",
@@ -496,7 +496,7 @@ dependencies = [
 
 [[package]]
 name = "bios-project"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "bios-core",
  "chrono",
@@ -511,7 +511,7 @@ dependencies = [
 
 [[package]]
 name = "bios-sync"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "bios-core",
  "bios-project",
@@ -526,7 +526,7 @@ dependencies = [
 
 [[package]]
 name = "bios-ui"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "bios-core",
  "bios-engine",
@@ -539,7 +539,7 @@ dependencies = [
 
 [[package]]
 name = "bios-update"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "bios-engine",
  "craft-update",
@@ -4875,7 +4875,7 @@ checksum = "e450f9b2ed1dff33c94c12589a87338689467b9c4f5d8a5710bd09a847d2c8a7"
 
 [[package]]
 name = "xtask"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "craft-xtask",
  "serde_json",
