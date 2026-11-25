@@ -220,7 +220,7 @@ impl Recents {
         let Ok(meta) = fs::metadata(file) else {
             return List::default();
         };
-        let stamp = Stamp::of(&meta);
+        let stamp = Stamp::of(file, &meta);
         let mut seen = match self.seen.lock() {
             Ok(g) => g,
             Err(poisoned) => poisoned.into_inner(),

@@ -2,9 +2,10 @@
 //! `stat` instead of a parse.
 //!
 //! A file is known unchanged while its size, modification time and (on Unix) inode and change
-//! time are what they were when it was read. Every write Bios makes replaces the file through
-//! `craft_atomic` or appends to it, which changes those, so nothing has to be told to forget; a
-//! change made by another program is noticed the same way.
+//! time are what they were when it was read; where there is no change time, its bytes stand in.
+//! Every write Bios makes replaces the file through `craft_atomic` or appends to it, which
+//! changes those, so nothing has to be told to forget; a change made by another program is
+//! noticed the same way.
 
 use std::collections::HashMap;
 use std::fs::Metadata;
@@ -25,19 +26,51 @@ pub(crate) struct Stamp {
     inode: u64,
     changed: i64,
     changed_ns: i64,
+    content: u64,
 }
 
 impl Stamp {
-    pub(crate) fn of(meta: &Metadata) -> Stamp {
+    /// Takes the path as well as the metadata because on Windows the metadata is not enough.
+    ///
+    /// On Unix the change time settles it: anything that puts new bytes in a file moves it, even
+    /// a write that keeps the length and then sets the modification time back. Windows keeps no
+    /// such time — a program can rewrite a file to the same length, restore its modification
+    /// time, and leave nothing in the metadata that moved. So on Windows the bytes are part of
+    /// the stamp. That costs a read of a file Bios would otherwise only `stat`: the price of
+    /// noticing a change rather than handing back a stale plasmid, and it still saves the parse,
+    /// which is the expensive half. Sequence files are small enough for that to be the right
+    /// trade. See `PARITY.md`.
+    pub(crate) fn of(path: &Path, meta: &Metadata) -> Stamp {
         #[cfg(unix)]
         let (inode, changed, changed_ns) = {
             use std::os::unix::fs::MetadataExt;
+            let _ = path;
             (meta.ino(), meta.ctime(), meta.ctime_nsec())
         };
         #[cfg(not(unix))]
         let (inode, changed, changed_ns) = (0, 0, 0);
-        Stamp { len: meta.len(), modified: meta.modified().ok(), inode, changed, changed_ns }
+        Stamp { len: meta.len(), modified: meta.modified().ok(), inode, changed, changed_ns, content: content(path) }
     }
+}
+
+/// A number that follows the file's bytes, on the platforms whose metadata cannot be trusted to.
+/// Not a digest anyone relies on: it only has to differ when the bytes differ, within one run.
+#[cfg(not(unix))]
+fn content(path: &Path) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    // A file that cannot be read hashes as itself being unreadable. Two reads that both fail
+    // then agree, which is right: the cached answer for such a file is the failure.
+    match std::fs::read(path) {
+        Ok(bytes) => bytes.hash(&mut hasher),
+        Err(e) => (e.kind(), path).hash(&mut hasher),
+    }
+    hasher.finish()
+}
+
+#[cfg(unix)]
+fn content(_path: &Path) -> u64 {
+    0
 }
 
 /// One sequence file as read: the text its version is the digest of, what it holds, and that

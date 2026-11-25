@@ -18,7 +18,7 @@ plate grid and BLAST in Verify, project avatars and invitations.
 
 ## On Windows
 
-Bios is one source tree and differs only in how it is packaged, but three things a Mac has are
+Bios is one source tree and differs only in how it is packaged, but a few things a Mac has are
 deliberately not matched, and this is the list of them.
 
 | Piece | On a Mac | On Windows | Why |
@@ -27,6 +27,7 @@ deliberately not matched, and this is the list of them.
 | Updating itself | Replaces itself where it is installed | Says what to run — the `install.ps1` line again, which replaces it in place | craft-update's portable installer needs a version resource in the exe, a stored ownership record and an exit-and-swap helper, and none of it can be compiled on a Mac. Finding a new version already works on both. |
 | Bringing the window to the front | `open -a` raises it | Starts it when it is not running; does not raise it when it is | `show_in_bios` already spawns `bios.exe`; only activation is missing, and it already says "ask the person to bring Bios to the front". |
 | The sequence font | The system's SF Mono, with its weight axis | The toolkit's own monospace, one weight | SF Mono is not on Windows. The bases still read; they are a little flatter. |
+| Noticing a file changed by another program | One `stat`: the change time moves even when the length and modification time do not | Reads the file's bytes as well | Windows keeps no change time, so a rewrite to the same length with the modification time put back leaves nothing in the metadata that moved. Bios reads the bytes rather than hand back a stale plasmid; the parse, which is the expensive half, is still skipped. |
 
 ## Foundation
 

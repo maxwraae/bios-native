@@ -698,7 +698,7 @@ impl Project {
     fn entries(&self, id: &ConstructId) -> Result<Vec<Entry>, Error> {
         let path = self.journal_path(id);
         let stamp = match fs::metadata(&path) {
-            Ok(meta) => Stamp::of(&meta),
+            Ok(meta) => Stamp::of(&path, &meta),
             Err(e) if e.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
             Err(e) => return Err(io(&path, e)),
         };
@@ -816,8 +816,9 @@ impl Project {
 
     /// One sequence file through the cache: parsed only if it changed since it was last read.
     fn cached_file(&self, rel: &Path) -> Parsed {
-        let meta = fs::metadata(self.root.join(rel)).map_err(|e| e.to_string())?;
-        self.cache.file(rel, Stamp::of(&meta), || {
+        let full = self.root.join(rel);
+        let meta = fs::metadata(&full).map_err(|e| e.to_string())?;
+        self.cache.file(rel, Stamp::of(&full, &meta), || {
             let (text, construct) = self.read_file(rel)?;
             let sha = sha_of(&text);
             Ok(std::sync::Arc::new((text, construct, sha)))
