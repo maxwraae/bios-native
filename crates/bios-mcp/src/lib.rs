@@ -42,6 +42,7 @@ How to work here:
 - Find plasmids with list_plasmids or find_plasmid. Address a plasmid by its path (\"backbones/pUC19\"), its name if unique, or its id.
 - Read before you edit. read_plasmid returns a `version`; every edit needs the version it was made against. If the plasmid changed in the meantime the edit is refused with CONFLICT and nothing is saved: read it again and redo the edit.
 - Positions are 1-based and inclusive, as a biologist counts them. On a circular plasmid start > end runs through the origin.
+- Do the DNA maths with these tools, never in your head and never with an outside script or library. Melting temperature and GC (sequence_stats), translation, open reading frames, restriction sites and digests, primer design and checking, PCR, Gibson and type IIS assembly, comparing two plasmids, quantities to weigh out: they are all here, and their answers are checked against recorded reference answers. Melting temperature is the nearest-neighbour estimate (SantaLucia 1998, 250 nM strands, 50 mM Na+) everywhere in Bios, so a figure you arrive at another way will disagree with what the person sees in the window. If a tool you need seems to be missing, say so and ask; do not put your own calculation in its place.
 - Use the sequence tools (insert_sequence, delete_range, replace_range) to change bases: features follow their bases, and the result says which moved, shrank or were removed. Tell the person about any feature that was trimmed or removed.
 - There is one copy of each plasmid. To start a variant use duplicate_plasmid, which records what it was made from. Never make copies by other means.
 - Everything you change is recorded as your work in plasmid_history, and any version can be brought back with restore_version. Say what you changed so the person can check it.";
@@ -382,6 +383,7 @@ fn definition(spec: &CommandSpec) -> Value {
         let mut schema = match p.kind {
             Kind::String => json!({ "type": "string" }),
             Kind::Integer => json!({ "type": "integer" }),
+            Kind::Number => json!({ "type": "number" }),
             Kind::Boolean => json!({ "type": "boolean" }),
             Kind::TextMap => json!({ "type": "object", "additionalProperties": { "type": "string" } }),
             Kind::Objects => json!({ "type": "array", "items": { "type": "object" } }),

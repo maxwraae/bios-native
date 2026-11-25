@@ -46,6 +46,28 @@ pub fn genetic_code(id: u64) -> Option<&'static GeneticCode> {
     GENETIC_CODES.iter().find(|code| code.id == id)
 }
 
+/// The codon at one place in a genetic code table, written out. Tables run in T, C, A, G order at each position, so a place past the
+/// 64th has no codon.
+pub fn codon_at(place: usize) -> Option<String> {
+    let bases = *b"TCAG";
+    let letter = |index: usize| bases.get(index).map(|b| char::from(*b));
+    Some([letter(place / 16)?, letter(place / 4 % 4)?, letter(place % 4)?].iter().collect())
+}
+
+/// Every codon a table marks with `mark` — `b'M'` for an initiation codon, `b'*'` for a termination codon — written out, in the
+/// table's own order. Empty for a table Bios does not carry.
+pub fn codons_marked(table_id: u64, mark: u8) -> Vec<String> {
+    let Some(code) = genetic_code(table_id) else {
+        return Vec::new();
+    };
+    code.start_stops.bytes().enumerate().filter(|(_, m)| *m == mark).filter_map(|(at, _)| codon_at(at)).collect()
+}
+
+/// A genetic code's name on one line. Four of the NCBI names are long enough that the table wraps them.
+pub fn code_name(code: &GeneticCode) -> String {
+    code.name.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 /// The largest whole number the web app can hold exactly; a larger qualifier value is malformed.
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 

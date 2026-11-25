@@ -10,15 +10,23 @@
 //! it ends in G or C, and the liabilities [`crate::primer_quality::primer_flags`] reports. Melting
 //! temperature is the nearest-neighbour estimate of [`crate::seq::tm`] (SantaLucia 1998).
 //!
+//! [`PrimerCriteria::boundary_slack`] loosens the two pins. Where a boundary is GC-rich or
+//! AT-rich, no primer of any allowed length starting exactly there reaches the target temperature,
+//! and the slack lets each 5' end step OUTWARD — never inward — so the stretch asked for stays
+//! whole inside a longer product. Each pair says how far each end moved.
+//!
 //! These are candidates ranked by well-known criteria. Nothing here predicts that a reaction will
-//! amplify at the bench: no mispriming search beyond the flags, no hairpin or dimer
-//! thermodynamics, no polymerase, no magnesium.
+//! amplify at the bench: no mispriming search beyond the flags, no dimer or folding
+//! thermodynamics, no polymerase, no magnesium. What it does report, per pair, is the cross-dimer
+//! and hairpin base-pair counts of [`crate::primer_quality`] and a recommended annealing
+//! temperature from [`crate::annealing`].
 //!
 //! Coordinates are 0-based inclusive on the plus strand, as everywhere in `bios-core`; a stretch
 //! through the origin of a circular construct has `end < start`.
 
+use crate::annealing::{AnnealingTemperature, annealing_temperature};
 use crate::pcr::{PcrInput, PcrPrediction, PcrPrimer, predict_pcr_product};
-use crate::primer_quality::{PrimerFlags, primer_flags};
+use crate::primer_quality::{DimerCheck, HairpinCheck, PrimerFlags, cross_dimer, hairpins, primer_flags};
 use crate::seq::{DNA_TM_DEFAULTS, clean_seq, gc_content, revcomp, tm};
 
 /// What a designed pair aims for. [`DEFAULT_PRIMER_CRITERIA`] is the usual starting point.
@@ -37,6 +45,11 @@ pub struct PrimerCriteria {
     pub prefer_gc_clamp: bool,
     /// Most pairs returned.
     pub max_pairs: usize,
+    /// How far each primer's 5' end may move OUTWARD from the edge of the stretch asked for, in
+    /// bases. Zero pins both ends exactly, which is the only behaviour there was. Outward only, so
+    /// the stretch asked for is always wholly inside the product; the product is then longer than
+    /// the stretch by however far the two ends moved, and each pair says how far that was.
+    pub boundary_slack: usize,
 }
 
 pub const DEFAULT_PRIMER_CRITERIA: PrimerCriteria = PrimerCriteria {
@@ -48,6 +61,7 @@ pub const DEFAULT_PRIMER_CRITERIA: PrimerCriteria = PrimerCriteria {
     max_gc: 60.0,
     prefer_gc_clamp: true,
     max_pairs: 5,
+    boundary_slack: 0,
 };
 
 /// Shortest stretch of correct sequence a mutagenic primer keeps on each side of the change.
@@ -79,6 +93,9 @@ pub struct DesignedPrimer {
     /// Length of the whole oligo, tail included.
     pub length: usize,
     pub flags: PrimerFlags,
+    /// What the oligo folds on itself, over the whole oligo including its tail. Reported, and left
+    /// out of the ranking: the warnings `flags` carries are what the score prices in.
+    pub hairpin: HairpinCheck,
 }
 
 impl DesignedPrimer {
@@ -109,6 +126,19 @@ pub struct PrimerPair {
     pub score: f64,
     /// One line: the numbers, then anything that falls short of the criteria.
     pub reason: String,
+    /// Bases the forward primer's 5' end moved outward from the start of the stretch asked for,
+    /// and the reverse primer's from its end. Both zero unless
+    /// [`PrimerCriteria::boundary_slack`] allowed otherwise.
+    pub forward_moved: usize,
+    pub reverse_moved: usize,
+    /// The duplex the two oligos form with each other, over their whole length, tails included.
+    pub dimer: DimerCheck,
+    /// Where to start a gradient, by the one rule in [`crate::annealing`]. `None` for a product
+    /// too short for that rule, or a primer with no melting temperature.
+    pub annealing: Option<AnnealingTemperature>,
+    /// What the cross-dimer check and the two hairpin checks found, worded for a person. Empty for
+    /// a pair with nothing against it. These are reported, not priced into `score`.
+    pub warnings: Vec<String>,
 }
 
 /// Why no primers were designed.
@@ -137,11 +167,11 @@ impl std::fmt::Display for DesignError {
 
 impl std::error::Error for DesignError {}
 
-fn round1(value: f64) -> f64 {
+pub(crate) fn round1(value: f64) -> f64 {
     (value * 10.0).round() / 10.0
 }
 
-fn anneal_tm(bases: &str) -> Option<f64> {
+pub(crate) fn anneal_tm(bases: &str) -> Option<f64> {
     tm(bases, DNA_TM_DEFAULTS.concentration_nm, DNA_TM_DEFAULTS.sodium_mm)
 }
 
@@ -164,12 +194,13 @@ fn span(start: usize, end: usize, n: usize) -> usize {
 }
 
 /// One primer from a footprint already chosen, with its tail.
-fn designed(anneal: String, tail: &str, start: usize, end: usize, forward: bool) -> DesignedPrimer {
+pub(crate) fn designed(anneal: String, tail: &str, start: usize, end: usize, forward: bool) -> DesignedPrimer {
     let sequence = format!("{tail}{anneal}");
     DesignedPrimer {
         gc: round1(gc_content(&anneal)),
         tm: anneal_tm(&anneal).map(round1),
         flags: primer_flags(&sequence),
+        hairpin: hairpins(&sequence),
         // `clean_seq` leaves ASCII letters only, so bytes are bases.
         length: sequence.len(),
         tail: tail.to_string(),
@@ -197,7 +228,7 @@ fn other_warnings(flags: &PrimerFlags) -> impl Iterator<Item = &String> {
 
 /// What one primer costs: °C off target, plus the other criteria priced in °C-sized penalties.
 /// A touch is added for length so that two equally good candidates rank by the shorter oligo.
-fn cost(primer: &DesignedPrimer, criteria: &PrimerCriteria) -> Option<f64> {
+pub(crate) fn cost(primer: &DesignedPrimer, criteria: &PrimerCriteria) -> Option<f64> {
     let tm = primer.tm?;
     let mut cost = (tm - criteria.target_tm).abs();
     cost += 0.2 * gc_miss(primer.gc, criteria);
@@ -226,6 +257,20 @@ fn shortfalls(primer: &DesignedPrimer, label: &str, criteria: &PrimerCriteria) -
     }
     out.extend(other_warnings(&primer.flags).map(|w| format!("{label}: {w}")));
     out
+}
+
+/// What one base of outward movement costs, in the same °C-sized units as everything else in
+/// [`cost`]. Small, so slack is taken when it buys a better temperature and left alone when it
+/// buys nothing: of two pairs that are otherwise equal, the one that amplifies the least extra
+/// sequence wins.
+const MOVE_COST: f64 = 0.2;
+
+/// The product a pair makes: the forward tail, the template from the forward primer's 5' end
+/// through the reverse primer's 5' end, and the reverse tail read back along the plus strand.
+fn product_bases(template: &[u8], circular: bool, f_start: usize, r_end: usize, forward_tail: &str, reverse_tail: &str) -> Option<String> {
+    let across = span(f_start, r_end, template.len());
+    let middle = window(template, f_start, across, circular)?;
+    Some(format!("{forward_tail}{middle}{}", revcomp(reverse_tail)))
 }
 
 fn pair_reason(forward: &DesignedPrimer, reverse: &DesignedPrimer, difference: f64, criteria: &PrimerCriteria) -> String {
@@ -268,13 +313,16 @@ fn check_criteria(criteria: &PrimerCriteria) -> Result<(), DesignError> {
 /// Candidate pairs that amplify `start..=end`, the best first.
 ///
 /// The forward primer's 5' end is pinned at `start` and the reverse primer's 5' end at `end`, so
-/// every pair's product is the stretch asked for. `forward_tail` and `reverse_tail` are 5' bases
-/// that are not on the template (a cloning site, an overhang): they are part of the oligo and end
-/// up in the product, and are left out of the annealing temperature.
+/// every pair's product is the stretch asked for — unless [`PrimerCriteria::boundary_slack`] is
+/// set, which lets each 5' end step that many bases OUTWARD, never inward, so the stretch asked
+/// for stays whole inside a product that is longer by however far the ends moved.
+/// `forward_tail` and `reverse_tail` are 5' bases that are not on the template (a cloning site, an
+/// overhang): they are part of the oligo and end up in the product, and are left out of the
+/// annealing temperature.
 ///
-/// `Err` when the stretch cannot hold two primers, or when no combination of lengths brings the
-/// two temperatures within [`PrimerCriteria::max_tm_difference`]; the message says what the
-/// closest candidate did.
+/// `Err` when the stretch cannot hold two primers, or when no combination of lengths and allowed
+/// movement brings the two temperatures within [`PrimerCriteria::max_tm_difference`]; the message
+/// says what the closest candidate did.
 pub fn design_primer_pairs(
     template: &str,
     circular: bool,
@@ -294,34 +342,56 @@ pub fn design_primer_pairs(
         return Err(DesignError::Criteria("that stretch runs through the origin, but this construct is linear".to_string()));
     }
     let region = span(start, end, n);
+    // How far each end may actually move: what was asked for, less what the construct allows. A
+    // linear construct has nothing beyond its own ends, and no product may lap a circle.
+    let slack = criteria.boundary_slack;
+    let (forward_slack, reverse_slack) = if circular {
+        // Whatever the two ends move, the product may not lap the circle. The forward end takes
+        // what it asked for and the reverse end what is left, which on anything but a stretch
+        // covering nearly the whole construct is all of it for both.
+        let room = n.saturating_sub(region);
+        let forward = slack.min(room);
+        (forward, slack.min(room - forward))
+    } else {
+        (slack.min(start), slack.min(n - 1 - end))
+    };
+    let have = region + forward_slack + reverse_slack;
     let needed = 2 * criteria.min_length;
-    if region < needed {
-        return Err(DesignError::RegionTooShort { needed, have: region });
+    if have < needed {
+        return Err(DesignError::RegionTooShort { needed, have });
     }
     let template = bases.as_bytes();
     let (forward_tail, reverse_tail) = (clean_seq(forward_tail), clean_seq(reverse_tail));
 
-    // One primer per length, built once: every pair of lengths reuses them.
-    let lengths = criteria.min_length..=criteria.max_length.min(region - criteria.min_length);
-    let mut forwards: Vec<DesignedPrimer> = Vec::new();
-    let mut reverses: Vec<DesignedPrimer> = Vec::new();
+    // One primer per length and per position of its 5' end, built once: every combination reuses
+    // them. Each is kept with how far outward that 5' end sits.
+    let lengths = criteria.min_length..=criteria.max_length.min(have - criteria.min_length);
+    let mut forwards: Vec<(DesignedPrimer, usize)> = Vec::new();
+    let mut reverses: Vec<(DesignedPrimer, usize)> = Vec::new();
     for length in lengths {
-        if let Some(anneal) = window(template, start, length, circular) {
-            forwards.push(designed(anneal, &forward_tail, start, (start + length - 1) % n, true));
+        for moved in 0..=forward_slack {
+            let from = (start + n - moved) % n;
+            if let Some(anneal) = window(template, from, length, circular) {
+                forwards.push((designed(anneal, &forward_tail, from, (from + length - 1) % n, true), moved));
+            }
         }
-        let from = (end + n + 1).saturating_sub(length) % n;
-        if let Some(top) = window(template, from, length, circular) {
-            reverses.push(designed(revcomp(&top), &reverse_tail, from, end, false));
+        for moved in 0..=reverse_slack {
+            let to = (end + moved) % n;
+            let from = (to + n + 1).saturating_sub(length) % n;
+            if let Some(top) = window(template, from, length, circular) {
+                reverses.push((designed(revcomp(&top), &reverse_tail, from, to, false), moved));
+            }
         }
     }
 
     let mut pairs: Vec<PrimerPair> = Vec::new();
     let mut closest: Option<f64> = None;
-    for f in &forwards {
-        for r in &reverses {
-            // The two footprints must not overlap: a pair that reads into its partner primes
-            // itself as readily as the template.
-            if f.anneal.len() + r.anneal.len() > region {
+    for (f, f_moved) in &forwards {
+        for (r, r_moved) in &reverses {
+            // A product may not lap the circle, and the two footprints must not overlap: a pair
+            // that reads into its partner primes itself as readily as the template.
+            let across = region + f_moved + r_moved;
+            if across > n || f.anneal.len() + r.anneal.len() > across {
                 continue;
             }
             let (Some(f_tm), Some(r_tm)) = (f.tm, r.tm) else {
@@ -338,16 +408,26 @@ pub fn design_primer_pairs(
             pairs.push(PrimerPair {
                 reason: pair_reason(f, r, difference, criteria),
                 tm_difference: round1(difference),
-                score: round1(f_cost + r_cost + 0.5 * difference),
+                score: round1(f_cost + r_cost + 0.5 * difference + MOVE_COST * (f_moved + r_moved) as f64),
                 forward: f.clone(),
                 reverse: r.clone(),
+                forward_moved: *f_moved,
+                reverse_moved: *r_moved,
+                dimer: DimerCheck::default(),
+                annealing: None,
+                warnings: Vec::new(),
             });
         }
     }
     if pairs.is_empty() {
+        let widen = if slack == 0 {
+            ". Both 5' ends are pinned to the ends of the stretch, so the only freedom is length; boundary_slack would let each end move outward to find better bases"
+        } else {
+            ""
+        };
         return Err(DesignError::NoPair(match closest {
             Some(difference) => format!(
-                "no pair of {}–{} base primers has melting temperatures within {} °C of each other over this stretch; the closest is {} °C apart",
+                "no pair of {}–{} base primers has melting temperatures within {} °C of each other over this stretch; the closest is {} °C apart{widen}",
                 criteria.min_length,
                 criteria.max_length,
                 round1(criteria.max_tm_difference),
@@ -356,14 +436,31 @@ pub fn design_primer_pairs(
             None => "no melting temperature can be estimated here: the stretch holds bases other than A, C, G and T at one or both ends".to_string(),
         }));
     }
-    // Deterministic: by cost, then the shorter forward primer, then the shorter reverse one.
+    // Deterministic: by cost, then the pair that moved its ends least, then the shorter forward
+    // primer, then the shorter reverse one.
     pairs.sort_by(|a, b| {
         a.score
             .total_cmp(&b.score)
+            .then((a.forward_moved + a.reverse_moved).cmp(&(b.forward_moved + b.reverse_moved)))
             .then(a.forward.anneal.len().cmp(&b.forward.anneal.len()))
             .then(a.reverse.anneal.len().cmp(&b.reverse.anneal.len()))
     });
     pairs.truncate(criteria.max_pairs);
+    // The checks that only a chosen pair needs: a cross-dimer is a comparison of two whole oligos
+    // and an annealing temperature needs the product, so neither is worth doing for thousands of
+    // candidates that will not be returned.
+    for pair in &mut pairs {
+        pair.dimer = cross_dimer(&pair.forward.sequence, &pair.reverse.sequence);
+        if let (Some(f_tm), Some(r_tm), Some(product)) =
+            (pair.forward.tm, pair.reverse.tm, product_bases(template, circular, pair.forward.start, pair.reverse.end, &forward_tail, &reverse_tail))
+        {
+            pair.annealing = annealing_temperature(f_tm, r_tm, &product, DNA_TM_DEFAULTS.sodium_mm);
+        }
+        pair.warnings = pair.dimer.warnings.clone();
+        for (primer, label) in [(&pair.forward, "forward"), (&pair.reverse, "reverse")] {
+            pair.warnings.extend(primer.hairpin.warnings.iter().map(|w| format!("{label}: {w}")));
+        }
+    }
     Ok(pairs)
 }
 

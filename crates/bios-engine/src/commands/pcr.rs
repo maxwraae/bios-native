@@ -1,9 +1,11 @@
 //! PCR: the product two primers make on a plasmid, predicted and, when asked, kept as a new
 //! plasmid that records which plasmid it was amplified from.
 
+use bios_core::annealing::{ANNEALING_RULE, annealing_temperature};
 use bios_core::pcr::{PcrInput, PcrPrediction, PcrPrimer, PcrProduct, PcrProductPrimerSite, predict_pcr_product};
 use bios_core::primer::{PrimerSearchOptions, PrimerSite, find_primer_sites};
 use bios_core::primer_binding::PrimerBindingCheck;
+use bios_core::seq::DNA_TM_DEFAULTS;
 use bios_core::{Construct, Feature, Segment, Strand};
 use serde_json::{Value, json};
 
@@ -38,7 +40,7 @@ const REVERSE_TAIL: Param = Param { name: "reverse_tail", kind: Kind::Integer, r
 pub const COMMANDS: &[CommandSpec] = &[
     CommandSpec {
         name: "simulate_pcr",
-        description: "Predict the product two primers make on a plasmid: its sequence and length, the stretch of the plasmid it copies, and how each primer binds (tail, mismatches, Tm of the part that binds). Tails and mismatches in the primers end up in the product. Through the origin of a circular plasmid is fine. Nothing is saved; use save_pcr_product to keep the product. It predicts a sequence, not whether the reaction will work at the bench.",
+        description: "Predict the product two primers make on a plasmid: its sequence and length, the stretch of the plasmid it copies, and how each primer binds (tail, mismatches, Tm of the part that binds). Tails and mismatches in the primers end up in the product. Through the origin of a circular plasmid is fine. It also reports annealing_temperature_c, where to start a gradient: Rychlik, Spencer & Rhoads 1990, Ta = 0.3 × Tm(cooler primer) + 0.7 × Tm(product) − 14.9, the primer Tm nearest-neighbour over the part that anneals and the product Tm from the long-duplex %GC formula at 50 mM salt. That is a starting point for a gradient, not a guarantee: it accounts for no polymerase, buffer, magnesium or additive, and a hot enzyme with its own recommended temperature should be run at that one. It is null where a primer has no melting temperature (a mismatched or ambiguous binding) or the product is under 50 bases, which is shorter than the rule applies to. Nothing is saved; use save_pcr_product to keep the product. It predicts a sequence, not whether the reaction will work at the bench.",
         params: &[PLASMID, FORWARD, REVERSE, FORWARD_TAIL, REVERSE_TAIL],
         effect: Effect::Read,
         run: Run::Call(simulate_pcr),
@@ -176,11 +178,28 @@ fn predict(c: &Construct, args: &Args) -> Result<Predicted, Failure> {
         PcrPrediction::Product { product, caveats, bindings } => {
             notes.extend(caveats);
             let arc = product.template_arc;
+            // The two primers' annealing Tm: a mismatched or ambiguous binding has none, and
+            // without both there is no honest annealing temperature to name.
+            let annealing = match (bindings.forward.annealing_tm, bindings.reverse.annealing_tm) {
+                (Some(f), Some(r)) => annealing_temperature(f, r, &product.sequence, DNA_TM_DEFAULTS.sodium_mm),
+                _ => None,
+            };
             let report = json!({
                 "length": product.sequence.len(),
                 "gc": gc_percent(&product.sequence),
                 "copies": format!("{}..{}", arc.start + 1, arc.end + 1),
                 "through_origin": arc.wraps_origin,
+                "annealing_temperature_c": match annealing {
+                    None => Value::Null,
+                    Some(a) => json!({
+                        "celsius": a.celsius,
+                        "cooler_primer_tm_c": a.primer_tm,
+                        "product_tm_c": a.product_tm,
+                        "product_length": a.product_length,
+                        "product_gc_percent": a.product_gc,
+                        "rule": ANNEALING_RULE,
+                    }),
+                },
                 "forward": binding_report(&product.primer_sites.forward, &bindings.forward, &input.forward),
                 "reverse": binding_report(&product.primer_sites.reverse, &bindings.reverse, &input.reverse),
                 "notes": notes,

@@ -176,11 +176,58 @@ registry the window, `bios-cli` and MCP share. One window only: eframe can draw 
 each would need its own copy of the window's whole state, which is not cheap today.
 
 Native only (Max, 2026-11-23): primer **design**. The web app checks and draws a primer someone
-has already chosen; it never works one out. `design_primers`, `design_mutagenesis_primers` and
-`check_primer` do (`bios-core::primer_design`), so an agent on MCP has no reason to reach for an
-outside primer tool. Bios's own design from published thermodynamics — the nearest-neighbour Tm
-already in `seq::tm` and the criteria a cloner applies by hand — not a port of any designer. A
-designed pair is kept with `add_primer`, which is still the only way a primer reaches a file.
+has already chosen; it never works one out. `design_primers`, `design_mutagenesis_primers`,
+`check_primer` and `design_sequencing_primers` do (`bios-core::primer_design`,
+`bios-core::sequencing`), so an agent on MCP has no reason to reach for an outside primer tool.
+Bios's own design from published thermodynamics — the nearest-neighbour Tm already in `seq::tm` and
+the criteria a cloner applies by hand — not a port of any designer. A designed pair is kept with
+`add_primer`, which is still the only way a primer reaches a file.
+
+What the web app's primer checks do not have, and these do (`bios-core::primer_quality`,
+`bios-core::annealing`): a **cross-dimer** check between two oligos, counted both as the longest
+complementary stretch anywhere and as the longest that pairs a 3'-terminal base, which is the
+duplex a polymerase extends into primer-dimer; a real **hairpin** search (stem, loop, where it
+sits, and whether it folds the 3' end) in place of the ported self-complementarity proxy; and a
+**recommended annealing temperature** on `design_primers` and `simulate_pcr`, by one named rule
+(Rychlik, Spencer & Rhoads 1990) rather than a number from nowhere. `design_primers` also takes
+`boundary_slack`, which lets each 5' end step outward where a boundary is too GC-rich or AT-rich
+for any pinned primer to reach the target Tm. All of it counts base pairs, not thermodynamics:
+there is no ΔG, no loop penalty and no fold, so each is a caution that can be ignored. The window
+still draws only `primer_flags`; the new checks are agent-facing only.
+
+Native only: **digests and restriction cloning**. The web app finds cut sites
+(`packages/dna-core/src/enzymes.ts`) and designs Gibson assemblies, but a diagnostic gel and a
+ligation are left to its assistant to work out in its head: `evals/cases/agent/cutting.ts` asks
+for sticky ends in prose and no tool stands behind it. `digest_plasmid`,
+`clone_by_restriction` and `save_restriction_clone` (`bios-core::digest`) do that arithmetic
+instead — the fragments a digest leaves, in gel order, with their ends and the features in them,
+and what ligating one of them into an opened vector gives, with the junctions, the orientations
+the ends allow and the usual ways a cloning goes wrong. Built on the enzyme table that was
+already there; the fragment sizes are recorded against the published pUC19 sequence
+(`bios-core/tests/digest.rs`).
+
+Native only (2026-11-23): the **27 genetic codes reach every command**, and the **quantity maths**.
+The web app's coding settings already carry NCBI's tables (`transl_table` on a CDS), but its
+translate and ORF tools only ever read the standard one; here `translate`, `find_orfs` and
+`protein_stats` all take `code`, and `genetic_codes` lists the tables so an agent does not guess a
+number. `find_orfs` ends an ORF at the chosen code's termination codons, and begins one at ATG
+alone unless `alternative_starts` asks for the code's other initiation codons — the window's ORF
+track is unchanged, still the web's ATG-to-standard-stop reading. `dna_amount` and `protein_stats`
+are new: ng ↔ pmol ↔ molecules ↔ molarity for a piece of DNA (its real weight from the bases when
+they are known, the 650 g/mol average when only a length is), an oligo's resuspension volume, the
+two amounts a ligation at a molar ratio wants, and a protein's weight, composition and molar
+absorption at 280 nm (Pace et al. 1995) so an A280 becomes a concentration. Each answer carries
+the formula it came from. No isoelectric point: the published methods disagree by several tenths
+of a pH unit and there is no checked answer to give.
+
+Native only (2026-11-23): comparing two whole plasmids. The web app fits ONE sequence into a
+construct (Find's Alignment mode, at most 24 local hits) and has nothing for "is this map the
+corrected map". `compare_plasmids` does (`bios-core::compare`): the two are aligned end to end,
+the turn and the strand that line two circular plasmids up are found first and reported, and every
+difference comes back with its position on both plasmids, the feature it falls in and, in a CDS,
+what it does to the protein. Bios's own, not a port: k-mer anchoring to find the register and to
+break the pair into stretches, a global Needleman-Wunsch with affine gaps over each stretch, and a
+stretch that turns out to resemble nothing reported as replaced instead of base by base.
 
 ## Primers, side by side (2026-11-22)
 

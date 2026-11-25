@@ -187,3 +187,23 @@ fn all_methyltransferase_aliases_and_unverified_entries_have_no_cut_coordinates(
     }
     assert_eq!((supported, unverified, methyltransferase), (319, 208, 6));
 }
+
+/// PaqCI is not grouped with AarI in the vendored catalog, but it is the name on the tube a
+/// Golden Gate protocol calls for, so it resolves by hand. NEB's isoschizomer chart gives both
+/// CACCTGC(4/8) (AarI, R0745); this pins that the entry Bios hands back really is that geometry,
+/// so the alias cannot quietly start pointing at a different cut.
+#[test]
+fn paqci_resolves_to_aari_with_the_same_cut() {
+    let paqci = get_enzyme("PaqCI").expect("PaqCI resolves");
+    let aari = get_enzyme("AarI").expect("AarI is in the table");
+    assert_eq!(paqci.name, aari.name);
+    assert_eq!(paqci.site, "CACCTGC");
+    assert_eq!(paqci.length, 7);
+    assert!(paqci.type2s);
+    // CACCTGC(4/8): the spacer is the top cut past the 7-base site, the overhang is top to bottom.
+    assert_eq!(paqci.top_snip_offset(), Some(11));
+    assert_eq!(paqci.bottom_snip_offset(), Some(15));
+    assert_eq!(paqci.top_snip_offset().unwrap() - paqci.length as i64, 4);
+    assert_eq!(paqci.bottom_snip_offset().unwrap() - paqci.top_snip_offset().unwrap(), 4);
+    assert_eq!(get_enzyme("paqci").map(|e| e.name), Some(aari.name));
+}

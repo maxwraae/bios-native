@@ -7,9 +7,10 @@
 
 use bios_core::pcr::PcrPrediction;
 use bios_core::primer_design::{
-    DEFAULT_PRIMER_CRITERIA, DesignError, MAX_MUTAGENESIS_LENGTH, MIN_MUTAGENESIS_FLANK, Mutagenesis, design_mutagenesis_primers,
+    DEFAULT_PRIMER_CRITERIA, DesignError, MAX_MUTAGENESIS_LENGTH, MIN_MUTAGENESIS_FLANK, Mutagenesis, PrimerCriteria, design_mutagenesis_primers,
     design_primer_pairs, pair_product,
 };
+use bios_core::primer_quality::cross_dimer;
 use bios_core::seq::revcomp;
 
 /// pUC19 (GenBank L09137), the public fixture every DNA test here designs over.
@@ -239,4 +240,174 @@ fn a_mutagenesis_that_cannot_be_designed_says_why() {
     let other = if &template[2..=2] == "A" { "G" } else { "A" };
     let edge = design_mutagenesis_primers(&template, false, 2, &Mutagenesis::substitute(other), &DEFAULT_PRIMER_CRITERIA).unwrap_err();
     assert!(edge.to_string().contains("correct bases on each side"), "{edge}");
+}
+
+/// The criteria with the boundary pins loosened by `slack` bases and nothing else changed.
+fn with_slack(slack: usize) -> PrimerCriteria {
+    PrimerCriteria { boundary_slack: slack, ..DEFAULT_PRIMER_CRITERIA }
+}
+
+#[test]
+fn no_slack_is_the_pinned_design_exactly() {
+    let template = puc19();
+    // The default, written out, has to be the same answer as the default itself: the slack is the
+    // one parameter that could silently move every design already recorded.
+    assert_eq!(DEFAULT_PRIMER_CRITERIA.boundary_slack, 0);
+    for (start, end) in [(600, 1099), (100, 599)] {
+        let pinned = design_primer_pairs(&template, true, start, end, &DEFAULT_PRIMER_CRITERIA, "", "").unwrap();
+        assert_eq!(pinned, design_primer_pairs(&template, true, start, end, &with_slack(0), "", "").unwrap());
+        for pair in &pinned {
+            assert_eq!((pair.forward_moved, pair.reverse_moved), (0, 0));
+        }
+    }
+}
+
+#[test]
+fn slack_cools_a_gc_rich_boundary_no_pinned_primer_can_reach() {
+    // The same stretch as `a_gc_rich_boundary_cannot_be_cooled_and_the_reason_says_so`: pUC19
+    // reads 78% GC from base 101, so the coolest pinned 18-mer there melts at 64.4 °C. Ten bases
+    // of outward slack reach AT-richer bases and bring the forward primer to 60.2 °C.
+    let template = puc19();
+    let best = |slack: usize| design_primer_pairs(&template, true, 100, 599, &with_slack(slack), "", "").unwrap()[0].clone();
+
+    let pinned = best(0);
+    assert_eq!((pinned.forward_moved, pinned.reverse_moved), (0, 0));
+    assert_eq!(pinned.forward.tm, Some(64.4));
+
+    let loosened = best(10);
+    assert_eq!(loosened.forward_moved, 10, "the forward 5' end takes all ten");
+    assert_eq!(loosened.reverse_moved, 8);
+    assert_eq!(loosened.forward.start, 90, "ten bases outward of 100");
+    assert_eq!(loosened.reverse.end, 607, "eight bases outward of 599");
+    assert_eq!(loosened.forward.tm, Some(60.2));
+    assert_eq!(loosened.reverse.tm, Some(59.7));
+    assert_eq!(loosened.tm_difference, 0.5);
+    assert!(loosened.score < pinned.score, "{} vs {}", loosened.score, pinned.score);
+    assert!(loosened.reason.contains("meets every criterion") || !loosened.reason.contains("the 60 °C target"), "{}", loosened.reason);
+
+    // More slack, used only as far as it pays: the forward end stops at 15 of the 20 allowed.
+    let wide = best(20);
+    assert_eq!((wide.forward_moved, wide.reverse_moved), (15, 8));
+    assert_eq!(wide.forward.tm, Some(59.6));
+}
+
+#[test]
+fn slack_moves_the_ends_outward_only_so_the_stretch_asked_for_stays_whole() {
+    let template = puc19();
+    let n = template.len();
+    for slack in [0, 1, 5, 25] {
+        for pair in design_primer_pairs(&template, true, 600, 1099, &with_slack(slack), "", "").unwrap() {
+            assert!(pair.forward_moved <= slack && pair.reverse_moved <= slack);
+            assert_eq!(pair.forward.start, 600 - pair.forward_moved, "the forward 5' end only ever moves outward");
+            assert_eq!(pair.reverse.end, 1099 + pair.reverse_moved, "and the reverse 5' end the other way");
+            // The product holds every base asked for and exactly as many more as were moved.
+            match pair_product(&template, true, &pair) {
+                PcrPrediction::Product { product, .. } => {
+                    assert_eq!(product.sequence.len(), 500 + pair.forward_moved + pair.reverse_moved);
+                    assert!(product.sequence.contains(&template[600..=1099]), "the stretch asked for is whole inside the product");
+                }
+                PcrPrediction::Refused { reasons, .. } => panic!("refused: {reasons:?}"),
+            }
+        }
+        assert!(n > 1099);
+    }
+}
+
+#[test]
+fn a_linear_construct_has_no_slack_past_its_own_ends() {
+    let template = puc19();
+    let n = template.len();
+    // The stretch runs to the last base, so the reverse end cannot move at all and the forward end
+    // can move only the 30 bases that lie before it.
+    let pairs = design_primer_pairs(&template, false, 30, n - 1, &with_slack(50), "", "").unwrap();
+    for pair in &pairs {
+        assert!(pair.forward_moved <= 30, "{}", pair.forward_moved);
+        assert_eq!(pair.reverse_moved, 0, "there is nothing beyond the last base of a linear construct");
+    }
+}
+
+#[test]
+fn slack_may_not_lap_a_circle() {
+    let template = puc19();
+    let n = template.len();
+    // The stretch is the whole construct but ten bases, so the two ends share ten bases of slack
+    // however much is asked for: a product that laps the circle is not a product.
+    let pairs = design_primer_pairs(&template, true, 10, 9, &with_slack(100), "", "").unwrap();
+    for pair in &pairs {
+        assert!(pair.forward_moved + pair.reverse_moved <= 10, "{} + {}", pair.forward_moved, pair.reverse_moved);
+        match pair_product(&template, true, pair) {
+            PcrPrediction::Product { product, .. } => assert!(product.sequence.len() <= n),
+            PcrPrediction::Refused { reasons, .. } => panic!("refused: {reasons:?}"),
+        }
+    }
+}
+
+#[test]
+fn slack_widens_what_counts_as_a_stretch_long_enough_for_two_primers() {
+    let template = puc19();
+    // 21 bases cannot hold two 18-mers, and the refusal counts only the stretch itself.
+    let short = design_primer_pairs(&template, true, 100, 120, &DEFAULT_PRIMER_CRITERIA, "", "").unwrap_err();
+    assert_eq!(short, DesignError::RegionTooShort { needed: 36, have: 21 });
+    // Five bases of slack at each end make 31, still too few for two 18-mers, and the message says
+    // the number it actually had to work with rather than the stretch alone.
+    let wider = design_primer_pairs(&template, true, 100, 120, &with_slack(5), "", "").unwrap_err();
+    assert_eq!(wider, DesignError::RegionTooShort { needed: 36, have: 31 });
+    // At ten there are 41, which is room, and the stretch asked for is still whole inside the
+    // product. A product of 37 to 57 bases is under the floor the annealing rule applies to, so
+    // the pair honestly carries no temperature.
+    let pairs = design_primer_pairs(&template, true, 100, 120, &with_slack(10), "", "").unwrap();
+    for pair in &pairs {
+        assert!(pair.forward.start <= 100 && pair.reverse.end >= 120);
+        assert!(pair.forward.anneal.len() + pair.reverse.anneal.len() <= 21 + pair.forward_moved + pair.reverse_moved);
+        assert_eq!(pair.annealing, None, "a 37-base product is shorter than the annealing rule applies to");
+    }
+}
+
+#[test]
+fn a_pair_that_cannot_be_designed_says_that_slack_would_help_only_when_there_is_none() {
+    // The lopsided synthetic template of `a_stretch_too_short_or_a_pair_too_far_apart_is_refused`:
+    // 20% GC at one end and 87% at the other, where no length brings the two within 3 °C.
+    let lopsided = format!("ATTTAGATTTAGATTTAGATTTAGATTTAG{}GGCCGCAGGCCGCAGGCCGCAGGCCGCAGG", "TGACCTGTAAGCATGCTAGTCCAATGGTCAGTCATGCATG");
+    let pinned = design_primer_pairs(&lopsided, false, 0, lopsided.len() - 1, &DEFAULT_PRIMER_CRITERIA, "", "").unwrap_err();
+    assert!(pinned.to_string().contains("boundary_slack would let each end move outward"), "{pinned}");
+    // The ends are the construct's own ends, so on a linear construct there is nowhere to move to;
+    // the message then does not promise something that cannot help.
+    let loosened = design_primer_pairs(&lopsided, false, 0, lopsided.len() - 1, &with_slack(20), "", "").unwrap_err();
+    assert!(!loosened.to_string().contains("boundary_slack"), "{loosened}");
+}
+
+#[test]
+fn every_returned_pair_carries_its_cross_dimer_and_an_annealing_temperature() {
+    let template = puc19();
+    let pairs = design_primer_pairs(&template, true, 600, 1099, &DEFAULT_PRIMER_CRITERIA, "", "").unwrap();
+    for pair in &pairs {
+        // The dimer is the two whole oligos against each other, which is what `cross_dimer` says
+        // of them on its own.
+        assert_eq!(pair.dimer, cross_dimer(&pair.forward.sequence, &pair.reverse.sequence));
+        let a = pair.annealing.expect("a 500-base product and two melting primers have one");
+        assert_eq!(a.product_length, 500 + pair.forward_moved + pair.reverse_moved);
+        assert_eq!(a.primer_tm, pair.forward.tm.unwrap().min(pair.reverse.tm.unwrap()));
+        // The rule, recomputed from the parts the pair reports: 0.3 primer + 0.7 product − 14.9.
+        let expected = 0.3 * a.primer_tm + 0.7 * a.product_tm - 14.9;
+        assert!((a.celsius - expected).abs() < 0.1, "{} vs {expected}", a.celsius);
+        // Hotter than the primers would suggest on their own and well under their Tm: the product
+        // term is what moves it, which is the whole reason this rule and not "Tm minus five".
+        assert!(a.celsius > 55.0 && a.celsius < a.product_tm, "{}", a.celsius);
+    }
+    // The best pair over this stretch, recorded: Tm 59.4/59.9 °C primers on a 57.4% GC product.
+    let best = &pairs[0];
+    let a = best.annealing.unwrap();
+    assert_eq!((a.primer_tm, a.product_tm, a.celsius), (59.4, 82.1, 60.4));
+    assert_eq!(best.warnings, vec!["forward: 5-bp hairpin stem round a 5-base loop".to_string()]);
+}
+
+#[test]
+fn a_tail_is_part_of_the_oligo_the_dimer_check_sees() {
+    let template = puc19();
+    // Two tails that are each other's reverse complement: the oligos now dimerise through their
+    // tails, 3' end to 3' end, however well the annealing parts behave.
+    let pairs = design_primer_pairs(&template, true, 600, 1099, &DEFAULT_PRIMER_CRITERIA, "GGGGGGGGGG", "CCCCCCCCCC").unwrap();
+    let best = &pairs[0];
+    assert!(best.dimer.longest >= 10, "{}", best.dimer.longest);
+    assert!(best.warnings.iter().any(|w| w.contains("cross-complementarity")), "{:?}", best.warnings);
 }

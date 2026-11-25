@@ -164,6 +164,16 @@ struct Lookup {
     patterns: Vec<Option<Vec<u32>>>,
 }
 
+/// Names the vendored catalog does not group with their isoschizomer, added by hand because a
+/// person asking for one of them means an enzyme Bios already has. Each pair is the same
+/// recognition sequence AND the same cleavage, checked against the supplier's own isoschizomer
+/// chart; a name that merely shares a site goes nowhere near this list. `ENZYME_TABLE` is
+/// generated and must not be edited, so the pairing lives here.
+///
+/// - PaqCI / AarI: both CACCTGC(4/8) (NEB's isoschizomer chart, AarI R0745). PaqCI is the one
+///   sold today and the one a Golden Gate protocol names, so it has to resolve.
+const EXTRA_ALIASES: &[(&str, &str)] = &[("PaqCI", "AarI")];
+
 fn lookup() -> &'static Lookup {
     static LOOKUP: OnceLock<Lookup> = OnceLock::new();
     LOOKUP.get_or_init(|| {
@@ -177,6 +187,11 @@ fn lookup() -> &'static Lookup {
             for alias in e.aliases {
                 alias_index.entry(alias.to_uppercase()).or_insert_with(|| key.clone());
             }
+        }
+        for (extra, canonical) in EXTRA_ALIASES {
+            let key = canonical.to_uppercase();
+            debug_assert!(by_name.contains_key(&key), "{canonical} is not in the table");
+            alias_index.entry(extra.to_uppercase()).or_insert(key);
         }
         let patterns = ENZYME_TABLE.iter().map(|e| compile_site(e.forward_regex)).collect();
         Lookup { by_name, alias_index, patterns }

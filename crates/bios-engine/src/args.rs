@@ -61,6 +61,17 @@ impl Args {
         Ok(self.get(name).and_then(Value::as_i64))
     }
 
+    /// A number parameter, whole or not.
+    pub fn opt_num(&self, name: &str) -> Result<Option<f64>, Failure> {
+        match self.get(name) {
+            None => Ok(None),
+            Some(value) => match value.as_f64() {
+                Some(number) if number.is_finite() => Ok(Some(number)),
+                _ => fail(format!("{name} must be a number")),
+            },
+        }
+    }
+
     pub fn opt_bool(&self, name: &str) -> Result<Option<bool>, Failure> {
         Ok(self.get(name).and_then(Value::as_bool))
     }
@@ -92,6 +103,7 @@ fn fits(kind: Kind, value: &Value) -> bool {
     match kind {
         Kind::String => value.is_string(),
         Kind::Integer => value.is_i64(),
+        Kind::Number => value.is_number(),
         Kind::Boolean => value.is_boolean(),
         Kind::TextMap => value.as_object().is_some_and(|m| m.values().all(Value::is_string)),
         Kind::Objects => value.as_array().is_some_and(|a| a.iter().all(Value::is_object)),
@@ -103,6 +115,7 @@ fn kind_words(kind: Kind) -> &'static str {
     match kind {
         Kind::String => "text",
         Kind::Integer => "a whole number",
+        Kind::Number => "a number",
         Kind::Boolean => "true or false",
         Kind::TextMap => "an object of text values",
         Kind::Objects => "a list of objects",

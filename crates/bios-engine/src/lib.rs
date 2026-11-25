@@ -40,6 +40,8 @@ pub use args::Args;
 pub enum Kind {
     String,
     Integer,
+    /// A number that may have a decimal part: a mass, a volume, a concentration.
+    Number,
     Boolean,
     /// A JSON object of text values.
     TextMap,

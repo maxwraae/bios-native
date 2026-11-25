@@ -92,7 +92,8 @@ fn describe(name: &str) -> Result<(), String> {
     for p in c.params {
         let kind = match p.kind {
             Kind::String => "text",
-            Kind::Integer => "number",
+            Kind::Integer => "whole number",
+            Kind::Number => "number",
             Kind::Boolean => "true/false",
             Kind::TextMap => "object",
             Kind::Objects | Kind::Strings => "list",

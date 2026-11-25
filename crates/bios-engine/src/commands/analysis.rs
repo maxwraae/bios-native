@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use bios_core::coding::{self, GENETIC_CODES, GeneticCode};
 use bios_core::enzymes::{COMMON_ENZYMES, CutSite, OverhangKind, find_cut_sites, get_enzyme};
 use bios_core::search::{SearchOptions, find_binding_sites};
 use bios_core::seq::{self, DNA_TM_DEFAULTS};
@@ -28,6 +29,14 @@ const RANGE_END: Param = Param {
 };
 const RAW: Param = Param { name: "sequence", kind: Kind::String, required: false, description: "Or give bases directly." };
 
+/// Every command that reads DNA as protein takes the same genetic code parameter.
+pub(crate) const CODE: Param = Param {
+    name: "code",
+    kind: Kind::Integer,
+    required: false,
+    description: "NCBI genetic code table number. Default 1, the standard code. genetic_codes lists all 27 Bios carries.",
+};
+
 /// Hits listed in one reply. The total is always reported.
 const MAX_HITS: usize = 200;
 
@@ -52,23 +61,38 @@ pub const COMMANDS: &[CommandSpec] = &[
     },
     CommandSpec {
         name: "translate",
-        description: "Translate a range, or bases you give, in a reading frame with the standard genetic code. Frames 1 to 3 read the top strand from the start; -1 to -3 read the bottom strand from the end. A stop is *.",
+        description: "Translate a range, or bases you give, in a reading frame. Frames 1 to 3 read the top strand from the start; -1 to -3 read the bottom strand from the end. A stop is *. Any of the 27 NCBI genetic codes can be used, not only the standard one: code 2 is vertebrate mitochondrial, 11 bacterial and plant plastid, 4 mould and protozoan mitochondrial and mycoplasma. genetic_codes lists them all.",
         params: &[
             OPTIONAL_PLASMID,
             RANGE_START,
             RANGE_END,
             RAW,
             Param { name: "frame", kind: Kind::Integer, required: false, description: "1, 2, 3, -1, -2 or -3. Default 1." },
+            CODE,
         ],
         effect: Effect::Read,
         run: Run::Call(translate),
     },
     CommandSpec {
+        name: "genetic_codes",
+        description: "Every NCBI genetic code Bios can translate with: its transl_table number, its name, and the codons it begins and ends a protein at. Pass one of these numbers as code to translate, find_orfs or protein_stats.",
+        params: &[],
+        effect: Effect::Read,
+        run: Run::Call(genetic_codes),
+    },
+    CommandSpec {
         name: "find_orfs",
-        description: "Open reading frames (ATG to the first stop, both strands). Positions are on the top strand and include the stop codon.",
+        description: "Open reading frames (ATG to the first stop in its frame, both strands). Positions are on the top strand and include the stop codon. The stop codons and the amino acids are those of the genetic code asked for, so a mitochondrial gene reads correctly: in code 2, TGA is a tryptophan and AGA and AGG are the stops.",
         params: &[
             PLASMID,
             Param { name: "min_aa", kind: Kind::Integer, required: false, description: "Shortest protein to report, in amino acids. Default 30." },
+            CODE,
+            Param {
+                name: "alternative_starts",
+                kind: Kind::Boolean,
+                required: false,
+                description: "Also begin an ORF at the code's other initiation codons (code 1: CTG, TTG; code 2: ATT, ATC, ATA, GTG), not only ATG. Default false, because an alternative start upstream of an ATG would otherwise take its place in the answer.",
+            },
         ],
         effect: Effect::Read,
         run: Run::Call(find_orfs),
@@ -230,32 +254,76 @@ fn sequence_stats(session: &Session, args: &Args) -> Result<Value, Failure> {
     Ok(json!({ "of": of, "length": bases.len(), "gc_percent": gc_percent(&bases), "tm_c": melting(&bases) }))
 }
 
+/// The genetic code a command was asked for, refusing a number that is not one of the NCBI tables.
+pub(crate) fn code_of(args: &Args) -> Result<&'static GeneticCode, Failure> {
+    let id = args.opt_int("code")?.unwrap_or(1);
+    match u64::try_from(id).ok().and_then(coding::genetic_code) {
+        Some(code) => Ok(code),
+        None => fail(format!("code {id} is not an NCBI genetic code table; genetic_codes lists the {} Bios carries", GENETIC_CODES.len())),
+    }
+}
+
 fn translate(session: &Session, args: &Args) -> Result<Value, Failure> {
     let (bases, of) = input(session, args)?;
+    let code = code_of(args)?;
     let frame = args.opt_int("frame")?.unwrap_or(1);
     let read = match frame {
         1..=3 => bases.get((frame - 1) as usize..).unwrap_or_default().to_string(),
         -3..=-1 => seq::revcomp(&bases).get((-frame - 1) as usize..).unwrap_or_default().to_string(),
         _ => return fail("frame must be 1, 2, 3, -1, -2 or -3"),
     };
-    let protein = seq::translate(&read);
-    Ok(json!({ "of": of, "frame": frame, "aa": protein.len(), "stops": protein.matches('*').count(), "protein": protein }))
+    let protein = seq::translate_with(&read, code.id).unwrap_or_default();
+    Ok(json!({
+        "of": of,
+        "frame": frame,
+        "code": code.id,
+        "code_name": coding::code_name(code),
+        "aa": protein.len(),
+        "stops": protein.matches('*').count(),
+        "protein": protein,
+    }))
+}
+
+fn genetic_codes(_: &Session, _: &Args) -> Result<Value, Failure> {
+    let codes: Vec<Value> = GENETIC_CODES
+        .iter()
+        .map(|code| {
+            json!({
+                "code": code.id,
+                "name": coding::code_name(code),
+                "start_codons": coding::codons_marked(code.id, b'M'),
+                "stop_codons": coding::codons_marked(code.id, b'*'),
+            })
+        })
+        .collect();
+    Ok(json!({ "total": codes.len(), "default": 1, "codes": codes }))
 }
 
 fn find_orfs(session: &Session, args: &Args) -> Result<Value, Failure> {
     let loaded = session.load(args)?;
+    let code = code_of(args)?;
+    let alternative_starts = args.opt_bool("alternative_starts")?.unwrap_or(false);
     let min_aa = match args.opt_int("min_aa")?.unwrap_or(30) {
         n if n >= 1 => n as usize,
         _ => return fail("min_aa must be 1 or more"),
     };
-    let orfs: Vec<Value> = seq::find_orfs(&loaded.construct.sequence, min_aa)
+    let found = seq::find_orfs_with(&loaded.construct.sequence, min_aa, code.id, alternative_starts).unwrap_or_default();
+    let starts: Vec<String> = if alternative_starts { coding::codons_marked(code.id, b'M') } else { vec!["ATG".to_string()] };
+    let orfs: Vec<Value> = found
         .into_iter()
         .map(|o| {
             let shown: String = if o.protein.chars().count() > 60 { o.protein.chars().take(60).chain(std::iter::once('…')).collect() } else { o.protein.clone() };
             json!({ "start": o.start, "end": o.end, "strand": if o.strand == Strand::Reverse { "reverse" } else { "forward" }, "aa": o.aa_length, "protein": shown })
         })
         .collect();
-    Ok(json!({ "plasmid": refs::label(&loaded.path), "orfs": orfs }))
+    Ok(json!({
+        "plasmid": refs::label(&loaded.path),
+        "code": code.id,
+        "code_name": coding::code_name(code),
+        "start_codons": starts,
+        "stop_codons": coding::codons_marked(code.id, b'*'),
+        "orfs": orfs,
+    }))
 }
 
 /// The most-used codon for each amino acid, per organism, in the order of [`AMINO_ACIDS`].

@@ -4,15 +4,19 @@ mod analysis;
 mod batch;
 mod browse;
 mod build;
+mod compare;
 mod copy;
 mod design;
+mod digest;
 mod features;
 mod files;
 mod gibson;
+mod golden_gate;
 mod history;
 mod oligos;
 mod pcr;
 mod primers;
+mod quantities;
 mod read;
 mod sequence;
 mod share;
@@ -32,6 +36,8 @@ pub static ALL: &[&[CommandSpec]] = &[
     files::COMMANDS,
     read::COMMANDS,
     analysis::COMMANDS,
+    compare::COMMANDS,
+    quantities::COMMANDS,
     oligos::COMMANDS,
     sequence::COMMANDS,
     structure::COMMANDS,
@@ -40,6 +46,8 @@ pub static ALL: &[&[CommandSpec]] = &[
     design::COMMANDS,
     pcr::COMMANDS,
     gibson::COMMANDS,
+    digest::COMMANDS,
+    golden_gate::COMMANDS,
     build::COMMANDS,
     copy::COMMANDS,
     batch::COMMANDS,
