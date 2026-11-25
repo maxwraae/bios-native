@@ -19,17 +19,17 @@ fn app() -> (tempfile::TempDir, App) {
 fn the_sheet_opens_only_on_a_selection_and_reads_the_way_it_was_dragged() {
     let (_dir, mut app) = app();
     app.command(menus::NEW_FEATURE);
-    assert_eq!(app.ask, None);
+    assert_eq!(app.ed.ask, None);
     // Dragged from gap 340 back to gap 300: bases 301 to 340, made right to left.
     app.point(340, 300, 0.0);
-    assert_eq!(app.cursor.selection, Some((300, 339)));
+    assert_eq!(app.ed.cursor.selection, Some((300, 339)));
     // A primer is answered on the pill (SelectionReadout.tsx `PrimerInline`), a feature in the sheet.
     app.command(menus::NEW_PRIMER);
-    assert_eq!(app.primer_ask.as_ref().map(|a| (a.span, a.forward)), Some(((300, 339), false)));
-    assert_eq!(app.ask, None);
+    assert_eq!(app.ed.primer_ask.as_ref().map(|a| (a.span, a.forward)), Some(((300, 339), false)));
+    assert_eq!(app.ed.ask, None);
     app.point(300, 340, 0.0);
     app.command(menus::NEW_FEATURE);
-    assert_eq!(app.ask.as_ref().map(|a| (a.what, a.forward)), Some((What::Feature, true)));
+    assert_eq!(app.ed.ask.as_ref().map(|a| (a.what, a.forward)), Some((What::Feature, true)));
 }
 
 #[test]
@@ -47,7 +47,7 @@ fn landing_the_sheet_adds_the_feature_through_the_command_and_leaves_a_caret() {
     assert_eq!(made.strand, bios_core::Strand::Reverse);
     assert_eq!(opened.history.last().map(|e| e.command.as_str()), Some("add_feature"));
     // The caret parks at the footprint's end, as the web's `finish` does (`collapseSelectionTo(sel.end)`).
-    assert_eq!((app.cursor.caret, app.cursor.selection), (Some(339), None));
+    assert_eq!((app.ed.cursor.caret, app.ed.cursor.selection), (Some(339), None));
 }
 
 #[test]

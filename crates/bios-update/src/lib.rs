@@ -77,7 +77,7 @@ impl Updater for GithubUpdater {
             return Err(why);
         }
         let bundle = installed_bundle()?;
-        let asset = Platform::current().and_then(|p| pick(&release, p)).ok_or("the release has no disk image for this Mac")?;
+        let asset = Platform::current().and_then(|p| pick(&release, p)).ok_or("the release has no file for this machine")?;
         let placed = install_release(&release, asset, &bundle, &http, &Paths::for_app(&APP)?)?;
         let relaunch = match self.after {
             After::ThisWindow => {
@@ -134,7 +134,7 @@ pub fn summarize(release: Option<&Release>, running: &str, bundle: Result<PathBu
     let cannot_install = match (bundle, release) {
         (Err(why), _) => Some(why),
         (Ok(_), Some(release)) if platform.and_then(|p| pick(release, p)).is_none() => {
-            Some(format!("the release has no disk image for this Mac (it should carry {})", asset_name(&release.version_label(), "<arch>")))
+            Some(format!("the release has no file for this machine (it should carry {})", asset_name_here(&release.version_label())))
         }
         (Ok(_), _) => None,
     };
@@ -150,17 +150,52 @@ pub fn summarize(release: Option<&Release>, running: &str, bundle: Result<PathBu
 
 /// The name of a release's disk image for one Mac architecture (`aarch64`, `x86_64` or
 /// `universal`), as craft-update picks it.
-pub fn asset_name(version: &str, arch: &str) -> String {
+pub fn mac_asset_name(version: &str, arch: &str) -> String {
     format!("bios-{version}-macos-{arch}.dmg")
 }
 
-/// The disk image of `release` for `platform`.
-pub fn pick(release: &Release, platform: Platform) -> Option<&Asset> {
-    craft_update::pick_asset(release, &[APP.id], platform, &[PackageKind::Dmg]).map(|(asset, _)| asset)
+/// The name of a release's Windows zip. Spelled exactly as craft-update's `parse_asset_name`
+/// reads it: the suffix is `PackageKind::PortableZip`'s and the architecture token is `x64`. One
+/// x64 build serves PCs on Arm too, which craft-update maps to the same token. `cargo xtask
+/// release` writes the same name; a test in each place pins the string.
+pub fn windows_asset_name(version: &str) -> String {
+    format!("bios-{version}-windows-x64-portable.zip")
 }
 
-/// The installed `Bios.app` this program runs from.
+/// The file a release should carry for this machine, for saying what is missing when it does not.
+fn asset_name_here(version: &str) -> String {
+    if cfg!(windows) { windows_asset_name(version) } else { mac_asset_name(version, "<arch>") }
+}
+
+/// The release file for `platform`: the disk image on a Mac, the portable zip on Windows.
+///
+/// Both kinds are offered because one release holds both, and craft-update's `pick_asset` already
+/// keeps to the kinds this platform can use. `Platform::current()`'s own `default_kinds` are not
+/// used: on Windows they include `Msi`, which Bios does not publish, and asking for a kind that
+/// is not there is indistinguishable from there being no new version.
+pub fn pick(release: &Release, platform: Platform) -> Option<&Asset> {
+    craft_update::pick_asset(release, &[APP.id], platform, &[PackageKind::Dmg, PackageKind::PortableZip]).map(|(asset, _)| asset)
+}
+
+/// What a person is told on Windows, where Bios cannot replace itself yet.
+///
+/// It is an instruction and not a complaint on purpose. `check_for_update` hands this to the
+/// window and to an agent as `cannot_install_because`, so it is the sentence an agent reads when
+/// it finds a new version and cannot install it — and the agent can then tell the person exactly
+/// what to run. Re-running the installer replaces the copy where it stands.
+pub const WINDOWS_UPDATE_BY_HAND: &str = "Bios on Windows does not replace itself yet. \
+    Install the new version by running this in PowerShell, which puts it where this copy already is:\n\
+    \n    irm https://raw.githubusercontent.com/maxwraae/bios-native/main/install.ps1 | iex";
+
+/// The installed copy of Bios this program runs from: the `Bios.app` on a Mac.
+///
+/// On Windows there is no bundle to find and nothing to swap yet, so this says what to do instead
+/// rather than looking for a folder it cannot act on. Checking for a new version does not come
+/// through here and keeps working on both systems.
 pub fn installed_bundle() -> Result<PathBuf, String> {
+    if cfg!(windows) {
+        return Err(WINDOWS_UPDATE_BY_HAND.to_string());
+    }
     let exe = std::env::current_exe().map_err(|e| format!("could not tell where this copy of Bios is ({e})"))?;
     bundle_of(&exe.canonicalize().unwrap_or(exe))
 }
@@ -317,11 +352,29 @@ mod tests {
 
     #[test]
     fn the_image_xtask_release_names_is_the_one_picked_for_this_mac() {
-        let r = release("v0.2.0", &[&asset_name("0.2.0", "aarch64"), "bios-cli-0.2.0-macos-aarch64.zip", "SHA256SUMS.txt"]);
+        let r = release("v0.2.0", &[&mac_asset_name("0.2.0", "aarch64"), "bios-cli-0.2.0-macos-aarch64.zip", "SHA256SUMS.txt"]);
         assert_eq!(pick(&r, ARM).map(|a| a.name.as_str()), Some("bios-0.2.0-macos-aarch64.dmg"));
         assert!(pick(&r, INTEL).is_none(), "an Intel Mac cannot run an Apple silicon build");
-        let universal = release("v0.2.0", &[&asset_name("0.2.0", "universal")]);
+        let universal = release("v0.2.0", &[&mac_asset_name("0.2.0", "universal")]);
         assert!(pick(&universal, INTEL).is_some() && pick(&universal, ARM).is_some());
+    }
+
+    /// The Windows zip is picked for a PC, and the exact name is pinned because getting it wrong
+    /// is silent: `pick_asset` would simply find nothing and the person would be told there is no
+    /// version for their machine. `cargo xtask release` writes this same string.
+    #[test]
+    fn the_zip_xtask_release_names_is_the_one_picked_for_a_pc() {
+        const PC: Platform = Platform { os: Os::Windows, arch: Arch::X64 };
+        const PC_ARM: Platform = Platform { os: Os::Windows, arch: Arch::Arm64 };
+
+        assert_eq!(windows_asset_name("0.2.0"), "bios-0.2.0-windows-x64-portable.zip");
+        let r = release("v0.2.0", &[&mac_asset_name("0.2.0", "aarch64"), &windows_asset_name("0.2.0"), "SHA256SUMS.txt"]);
+        assert_eq!(pick(&r, PC).map(|a| a.name.as_str()), Some("bios-0.2.0-windows-x64-portable.zip"));
+        assert_eq!(pick(&r, PC_ARM).map(|a| a.name.as_str()), Some("bios-0.2.0-windows-x64-portable.zip"), "a PC on Arm runs the x64 build");
+        assert_eq!(pick(&r, ARM).map(|a| a.name.as_str()), Some("bios-0.2.0-macos-aarch64.dmg"), "a Mac still gets the disk image");
+        // A name craft-update cannot parse is not an error, which is exactly why it is pinned.
+        let misnamed = release("v0.2.0", &["bios-0.2.0-windows-x86_64.zip"]);
+        assert!(pick(&misnamed, PC).is_none(), "x86_64 and a bare .zip are not what PortableZip is");
     }
 
     #[test]
@@ -353,7 +406,24 @@ mod tests {
         assert!(dev.newer);
         assert!(dev.cannot_install.unwrap().contains("target/release"));
         let intel = summarize(Some(&r), "0.1.0", Ok(PathBuf::from("/Applications/Bios.app")), Some(INTEL));
-        assert!(intel.cannot_install.unwrap().contains("no disk image"));
+        let said = intel.cannot_install.unwrap_or_default();
+        assert!(said.contains("no file for this machine"), "{said}");
+        assert!(said.contains("bios-0.2.0-"), "it names the file that is missing: {said}");
+    }
+
+    /// On Windows a new version is still found; only installing it is by hand, and what the
+    /// person is told is the command to run. An agent reads this as `cannot_install_because`.
+    #[test]
+    fn windows_is_told_how_to_update_rather_than_that_it_cannot() {
+        const PC: Platform = Platform { os: Os::Windows, arch: Arch::X64 };
+
+        let r = release("v0.2.0", &[&windows_asset_name("0.2.0"), "SHA256SUMS.txt"]);
+        let check = summarize(Some(&r), "0.1.0", Err(WINDOWS_UPDATE_BY_HAND.to_string()), Some(PC));
+        assert!(check.newer, "a new version is found on Windows like anywhere else");
+        assert_eq!(check.latest.as_deref(), Some("0.2.0"));
+        let said = check.cannot_install.unwrap_or_default();
+        assert!(said.contains("install.ps1"), "it names the installer to run: {said}");
+        assert!(said.contains("irm "), "and the command, so an agent can repeat it: {said}");
     }
 
     #[test]

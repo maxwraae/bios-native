@@ -9,6 +9,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+base64 = { workspace = true }
 bios-engine = { workspace = true }
 bios-project = { workspace = true }
 craft-mcp-server = { workspace = true }

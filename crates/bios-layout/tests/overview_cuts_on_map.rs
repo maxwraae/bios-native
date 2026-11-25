@@ -84,3 +84,22 @@ fn a_band_outside_the_ring_is_paid_for_out_of_the_margin() {
     assert_eq!(ring_margin_for(1000.0, 600.0, 0.0, 400.0), Some(600.0 * 0.38));
     assert_eq!(ring_margin_for(1000.0, 600.0, 400.0, 0.0), Some(600.0 * 0.3));
 }
+
+#[test]
+fn the_line_centres_what_it_draws_and_keeps_its_numbers_in_a_short_frame() {
+    use bios_layout::overview::line_map::TITLE_CLEAR;
+    use bios_layout::overview::projection::NAV_RESERVE;
+    for h in [300.0, 400.0, 800.0] {
+        let map = layout_line(&scene(false), Frame::line(1000.0, h), measure);
+        let (top, bottom) = map.extent();
+        let floor = h - NAV_RESERVE;
+        assert!((top - (floor - bottom)).abs() < 1e-6, "{h}: {top} above, {} below", floor - bottom);
+    }
+    // Too short to centre clear of the title: pushed down under it, numbers still in the frame.
+    let map = layout_line(&scene(false), Frame::line(1000.0, 120.0), measure);
+    let (top, bottom) = map.extent();
+    assert!(bottom <= 120.0 - NAV_RESERVE + 1e-6 && (top >= TITLE_CLEAR - 1e-6 || bottom >= 120.0 - NAV_RESERVE - 1e-6), "{top}..{bottom}");
+    // Shorter than the drawing: the axis and numbers stay; the names above give way.
+    let map = layout_line(&scene(false), Frame::line(1000.0, 40.0), measure);
+    assert!((map.extent().1 - (40.0 - NAV_RESERVE)).abs() < 1e-6);
+}

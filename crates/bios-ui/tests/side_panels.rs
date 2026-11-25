@@ -3,7 +3,7 @@
 //! what is left still names the file's own feature, and the tool row's tag button asks for Contents.
 
 use bios_core::genbank;
-use bios_layout::pane::{Focus, MapStyle};
+use bios_layout::pane::Focus;
 use bios_ui::canvas_tools::{self, Action, Panel, Tools};
 use bios_ui::contents_panel::listed_features;
 use bios_ui::pane::{drawn, feature_in_file};
@@ -72,10 +72,10 @@ fn the_tag_button_asks_for_contents() {
     let ctx = egui::Context::default();
     theme::install_fonts(&ctx);
     let screen = Rect::from_min_size(Pos2::ZERO, vec2(800.0, 600.0));
-    let tools = Tools { can_undo: false, can_redo: false, focus: Focus::Split, style: MapStyle::Linear, fold_reason: None, open: None, side: None };
-    // The row is 397 wide and centred at 202; the panels group is its last 98, the tag its third
-    // segment: 202 + 397 - 98 + 3 + 62 + 15.
-    let at = pos2(581.0, 499.0);
+    let tools = Tools { can_undo: false, can_redo: false, focus: Focus::Split, open: None, side: None };
+    // The row is 262 wide and starts at 269; the panels group is its last 67 (the layers button
+    // moved to the map's corner), the tag its second segment: 269 + 262 - 67 + 3 + 31 + 15.
+    let at = pos2(513.0, 499.0);
     let press =
         vec![Event::PointerMoved(at), Event::PointerButton { pos: at, button: PointerButton::Primary, pressed: true, modifiers: Modifiers::NONE }];
     let release = vec![Event::PointerButton { pos: at, button: PointerButton::Primary, pressed: false, modifiers: Modifiers::NONE }];

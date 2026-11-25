@@ -218,7 +218,6 @@ pub mod track {
     pub const CUTSITE_LABELS: f64 = 15.0;
     pub const TRANSLATIONS: f64 = 17.0;
     pub const ORFS: f64 = 15.0;
-    pub const PROBE: f64 = 17.0;
     /// Clear air below a row, so one row reads as a block.
     pub const ROW_GAP: f64 = 22.0;
 }
@@ -243,7 +242,6 @@ pub struct Lanes {
     pub cutsite_labels: u32,
     pub above: StrandLanes,
     pub below: StrandLanes,
-    pub probe: u32,
 }
 
 /// Which optional tracks are shown.
@@ -303,9 +301,6 @@ pub fn row_height(lanes: Lanes, tracks: Tracks) -> f64 {
     }
     h += duplex_top(lanes);
     h += lane_block_height(lanes.below);
-    if lanes.probe > 0 {
-        h += f64::from(lanes.probe) * track::PROBE;
-    }
     h + track::ROW_GAP
 }
 

@@ -109,13 +109,20 @@ pub struct Recents {
     seen: std::sync::Mutex<Option<Box<(Stamp, List)>>>,
 }
 
+/// The person's home folder: `HOME` everywhere, and `USERPROFILE` on Windows, which is where
+/// Windows keeps it and does not set `HOME`. Everything below goes through this, because a `None`
+/// here means Bios has nowhere to suggest putting a project.
+fn home() -> Option<PathBuf> {
+    let named = |name| std::env::var_os(name).filter(|h: &std::ffi::OsString| !h.is_empty()).map(PathBuf::from);
+    named("HOME").or_else(|| if cfg!(windows) { named("USERPROFILE") } else { None })
+}
+
 /// The folder each system gives an app for its settings, as `craft-settings` finds it, so that
 /// the list sits beside the window's `config.toml`. `BIOS_CONFIG_DIR` moves both.
 pub fn settings_dir() -> Option<PathBuf> {
     if let Some(dir) = std::env::var_os("BIOS_CONFIG_DIR").filter(|d| !d.is_empty()) {
         return Some(PathBuf::from(dir));
     }
-    let home = || std::env::var_os("HOME").filter(|h| !h.is_empty()).map(PathBuf::from);
     let base = if cfg!(target_os = "macos") {
         home().map(|h| h.join("Library/Application Support"))
     } else if cfg!(windows) {
@@ -129,7 +136,7 @@ pub fn settings_dir() -> Option<PathBuf> {
 /// Where a new project is made unless the person chooses another place: `Bios projects` in
 /// their Documents folder when there is one, else Documents itself, else their home folder.
 pub fn default_location() -> Option<PathBuf> {
-    let home = PathBuf::from(std::env::var_os("HOME").filter(|h| !h.is_empty())?);
+    let home = home()?;
     let documents = home.join("Documents");
     let preferred = documents.join("Bios projects");
     Some(if preferred.is_dir() {
@@ -144,8 +151,7 @@ pub fn default_location() -> Option<PathBuf> {
 /// The projects in `~/Bios`, where earlier versions of Bios kept every project, and in the place
 /// new projects are made: the list starts from them, so nothing a person made goes missing.
 fn earlier_projects() -> Vec<PathBuf> {
-    let home = std::env::var_os("HOME").filter(|h| !h.is_empty()).map(PathBuf::from);
-    let places = [home.map(|h| h.join("Bios")), default_location()];
+    let places = [home().map(|h| h.join("Bios")), default_location()];
     let mut found: Vec<PathBuf> = places
         .iter()
         .flatten()

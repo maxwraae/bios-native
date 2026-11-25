@@ -93,7 +93,7 @@ pub(crate) struct Aligner {
     sent: Option<Asked>,
     answer: Option<Answer>,
     /// Bumped whenever the hits change, for the rows.
-    changed: u64,
+    pub(crate) changed: u64,
 }
 
 impl Default for Aligner {
@@ -120,6 +120,11 @@ impl Aligner {
         }
         let wanted = bases.filter(|b| alignable(c, b)).map(|b| (revision, b));
         if wanted != self.wanted {
+            // Switching to Exact (or back) shows or hides the held answer without a new one
+            // arriving; the rows key on `changed`, so without this they keep drawing the old fit.
+            if wanted.is_some() != self.wanted.is_some() {
+                self.changed += 1;
+            }
             let long = wanted.as_ref().is_some_and(|(_, b)| b.len() > FIND_LIVE_NT);
             self.due = wanted.as_ref().map(|_| Instant::now() + if long { DEBOUNCE } else { Duration::ZERO });
             self.wanted = wanted;
@@ -248,9 +253,9 @@ impl App {
         let Some(opened) = &self.opened else {
             return;
         };
-        let number = self.oligos.next();
+        let number = self.ed.oligos.next();
         if let Some(binder) = binder_from_selection(&opened.construct.sequence, start, end, number) {
-            self.oligos.hold(&opened.id, binder);
+            self.ed.oligos.hold(&opened.id, binder);
         }
     }
 
@@ -259,9 +264,9 @@ impl App {
         let Some(id) = self.opened.as_ref().map(|o| o.id.clone()) else {
             return;
         };
-        let number = self.oligos.next();
+        let number = self.ed.oligos.next();
         if let Some(binder) = binder_from_bases(bases, None, number) {
-            self.oligos.hold(&id, binder);
+            self.ed.oligos.hold(&id, binder);
         }
     }
 
@@ -270,11 +275,11 @@ impl App {
         let Some(id) = self.opened.as_ref().map(|o| o.id.clone()) else {
             return;
         };
-        let Some(binder) = self.oligos.binders_of(&id).nth(index).map(|b| b.id.clone()) else {
+        let Some(binder) = self.ed.oligos.binders_of(&id).nth(index).map(|b| b.id.clone()) else {
             return;
         };
-        self.oligos.held.retain(|(of, b)| !(of == &id && b.id == binder));
-        self.oligos.changed += 1;
+        self.ed.oligos.held.retain(|(of, b)| !(of == &id && b.id == binder));
+        self.ed.oligos.changed += 1;
     }
 }
 
@@ -299,15 +304,15 @@ impl App {
         if f.kind != "primer_bind" || f.end < f.start {
             return;
         }
-        self.anchor = None;
-        self.oligos.drag = Some(PrimerDrag { feature, start, was: (f.start, f.end), now: (f.start, f.end) });
+        self.ed.anchor = None;
+        self.ed.oligos.drag = Some(PrimerDrag { feature, start, was: (f.start, f.end), now: (f.start, f.end) });
     }
 
     /// The pointer moved to `gap` with a primer's end held: the primer is drawn at its new length
     /// at once, so its card's Tm, GC and uniqueness are worked out again under the pointer. Nothing
     /// is written until the button comes up. False when no end is held.
     pub(crate) fn drag_primer(&mut self, gap: usize) -> bool {
-        let (Some(drag), Some(opened)) = (self.oligos.drag.as_mut(), self.opened.as_mut()) else {
+        let (Some(drag), Some(opened)) = (self.ed.oligos.drag.as_mut(), self.opened.as_mut()) else {
             return false;
         };
         let now = dragged(drag.was, drag.start, gap, opened.construct.len());
@@ -324,7 +329,7 @@ impl App {
     /// While an end is held: the primer's card, its Tm live. When the button comes up the new
     /// footprint is written through `update_primer`, once, as one step in the history.
     pub(crate) fn primer_drag_frame(&mut self, ctx: &egui::Context) {
-        let Some(drag) = self.oligos.drag else {
+        let Some(drag) = self.ed.oligos.drag else {
             return;
         };
         if ctx.input(|i| i.pointer.primary_down()) {
@@ -340,7 +345,7 @@ impl App {
             }
             return;
         }
-        self.oligos.drag = None;
+        self.ed.oligos.drag = None;
         if drag.now == drag.was {
             return;
         }

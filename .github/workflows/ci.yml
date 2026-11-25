@@ -1,0 +1,97 @@
+name: Checks
+
+# Bios is built and checked on a Mac and on a PC, because it is published for both and because a
+# PC is the one machine the people who work on it do not have. `cargo xtask ci` stays the gate —
+# this runs the same command, and then makes the two programs that are actually published and has
+# them answer for themselves (`cargo xtask smoke`).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Pull requests share one group per branch, so a newer push cancels the older run. Every other
+  # run gets a group of its own, so it is neither cancelled nor replaced while queued.
+  group: checks-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: ${{ matrix.name }}
+    # A cold build of this workspace is slow: egui, winit and ArtCraft's libraries come from git.
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, name: macOS }
+          - { os: windows-latest, name: Windows }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@v2.22.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v7.0.1
+        with:
+          # The token isn't needed after checkout; cargo runs build scripts and proc macros from
+          # dependencies, so don't leave it in .git/config for that third-party code to read.
+          persist-credentials: false
+
+      - uses: step-security/dtolnay-rust-toolchain@v1.0.0
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - uses: step-security/rust-cache@v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # The installers are the first thing anyone runs and the one part no Rust test covers. A
+      # typo in either is only found when someone tries to install Bios, which is the worst
+      # possible moment, so they are at least parsed on every push.
+      - name: install.sh is valid shell
+        if: runner.os == 'macOS'
+        run: sh -n install.sh
+
+      - name: install.ps1 is valid PowerShell
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("$PWD/install.ps1", [ref]$null, [ref]$errors)
+          if ($errors) { $errors | ForEach-Object { Write-Host $_ }; throw 'install.ps1 does not parse' }
+          Write-Host 'install.ps1 parses'
+
+      - name: Every check (fmt, clippy, tests, assets, layers)
+        run: cargo xtask ci
+
+      - name: Build the two programs exactly as they are published
+        run: cargo build --release --locked --package bios --package bios-cli
+
+      - name: Prove them
+        if: runner.os == 'macOS'
+        run: cargo xtask smoke
+
+      - name: Prove them
+        if: runner.os == 'Windows'
+        # A Windows runner draws on a software adapter, which usually works and is not promised.
+        # When it does not, the picture is skipped loudly and everything else still has to pass:
+        # the programs, the command line, a real MCP conversation and the melting temperature.
+        env:
+          BIOS_SMOKE_PICTURE_OPTIONAL: '1'
+        run: cargo xtask smoke
+
+      - name: Keep the picture of the window
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: window-${{ matrix.name }}
+          path: target/smoke/window.png
+          if-no-files-found: warn

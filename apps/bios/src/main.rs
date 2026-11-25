@@ -7,10 +7,17 @@
 //! anything was written.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 #![forbid(unsafe_code)]
+// On Windows a console-subsystem program opens a console window of its own, which would sit
+// behind Bios for as long as it runs. The window is the only program here that takes this: text
+// belongs to `bios-cli`, which ships beside it and stays a console program on purpose, so
+// `--help` and `--shot`'s complaints are still read there. A parent that pipes our output (a
+// test, a shell substitution, `cargo xtask smoke`) receives it either way.
+#![cfg_attr(windows, windows_subsystem = "windows")]
 
 mod build;
 mod drop;
 mod editing;
+mod editor;
 mod floating;
 mod intro_sheet;
 mod keys;
@@ -25,6 +32,7 @@ mod settings_window;
 mod side;
 mod updates;
 mod verify;
+mod windows;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -46,17 +54,15 @@ use bios_project::{Actor, ConstructId, Entry, Listed, Project, Who};
 use bios_ui::ask::{self, Ask};
 use bios_ui::changes::{self, Action, Lineage};
 use bios_ui::feature_card::FeatureCard;
-use bios_ui::find_bar::{FindBar, FindMatch};
-use bios_ui::row_menu::RowMenu;
 use bios_ui::selection_readout::PrimerAsk;
 use bios_ui::session_nav::{self, Nav};
 use bios_ui::sidebar::{self, Place};
-use bios_ui::tab_strip::{self, TabStrip};
-use bios_ui::{app_layout, canvas_tools, enzymes_menu, map, navigator, pane, plasmid_title, rows, theme, view_tab};
+use bios_ui::{app_layout, canvas_tools, enzymes_menu, map, map_tools, navigator, pane, plasmid_title, rows, theme, view_tab};
 use craft_dialogs::{Answer, Dialogs, FileDialog, Message, MessageButtons, MessageLevel, MessageResult};
 use craft_menu::{Gate, LayoutOptions, MenuBarUi, NativeMenu, Target};
 use craft_settings::{Location, SettingsStore};
 use editing::Editing;
+use editor::Editor;
 use egui::{Align2, Rect, Stroke, UiBuilder, pos2, vec2};
 use prefs::Prefs;
 use serde_json::{Value, json};
@@ -135,7 +141,29 @@ struct App {
     /// The project's stamp when it was last read; a different one means someone wrote to it.
     stamp: u64,
     polled: Instant,
+    /// The working copy of the plasmid in front of the editor being worked on (`ed`).
     opened: Option<Opened>,
+    /// The working copies of the plasmids in front of every parked editor (editor.rs).
+    copies: std::collections::HashMap<ConstructId, Opened>,
+    /// The editor being worked on: the focused one, or, while it is drawn, another.
+    ed: Editor,
+    /// The editor beside `ed`, when the window is split.
+    split: Option<editor::Split>,
+    /// Numbers the next editor.
+    editors_made: u64,
+    /// The window whose state is in these fields (windows.rs), and the one being worked on: the
+    /// same between frames, apart while another window is drawn.
+    here: egui::ViewportId,
+    active: egui::ViewportId,
+    /// Every other window, and when each was made.
+    windows: Vec<windows::Window>,
+    /// `--draw-window <n>`: draw the nth window's state in the main window, for a picture.
+    draw_window: Option<usize>,
+    /// How many frames the main window has drawn.
+    painted: u32,
+    /// The window the system had in front last frame.
+    focused_seen: Option<egui::ViewportId>,
+    window_made: Vec<(egui::ViewportId, u64)>,
     /// A file opened on its own, outside any project. It can be looked at, not changed.
     loose: Option<Construct>,
     query: String,
@@ -145,9 +173,6 @@ struct App {
     /// Bumped whenever what is drawn changes, so cached layout knows to rebuild.
     revision: u64,
     problem: Option<String>,
-    plan: Option<rows::Plan>,
-    /// The strip's one row laid out, while the map's pane is the strip.
-    strip_plan: Option<rows::Plan>,
     styled: bool,
     /// Where to save a picture of the first settled frame, then quit.
     shot: Option<PathBuf>,
@@ -158,21 +183,16 @@ struct App {
     frames: u32,
     /// The picture has been asked for and not yet delivered.
     shooting: bool,
-    /// Where the person is in the open sequence.
-    cursor: rows::Cursor,
-    /// The gap a press started at, which a drag selects from.
-    anchor: Option<usize>,
-    /// The same for a press on the map, and how many turns of the ring a shift-press stood away
-    /// from where the pointer reads: a drag round the ring counts on from there.
-    map_anchor: i64,
-    map_turn: i64,
     /// When the last edit was made by hand. It is saved once this is `AUTOSAVE` old.
     edited: Option<Instant>,
     /// A save was refused. It is not tried again until the person edits or asks.
     save_refused: bool,
     /// Text a command put aside for the clipboard, handed over at the end of the frame.
     to_clipboard: Option<String>,
-    /// The window's `movable` flag as last set, so AppKit is only told when it changes.
+    /// The window's `movable` flag as last set, so AppKit is only told when it changes. A Mac
+    /// only: `craft_window`'s `sync_movable` is macOS-only, and elsewhere the system moves its
+    /// own window.
+    #[cfg(target_os = "macos")]
     window_movable: Option<bool>,
     /// `--input` and `--record`: scripted input and pictures over time.
     script: Option<script::Script>,
@@ -180,18 +200,8 @@ struct App {
     copied: Option<bios_engine::editor::fragment::DnaFragment>,
     /// Something the person should know that is not a failure, shown where problems are.
     notice: Option<String>,
-    /// The sheet naming a new feature or primer on the selection, while it is open.
-    ask: Option<Ask>,
-    /// + Primer, being answered on the selection's pill.
-    primer_ask: Option<PrimerAsk>,
-    /// ⌘F's bar while it is open, what it found, and in which revision of what is drawn.
-    find: Option<(FindBar, Vec<FindMatch>, u64)>,
-    /// The menu on a selection or on what is drawn over the bases, while it is open.
-    row_menu: Option<RowMenu>,
     /// Open that menu on the selection as soon as it is on screen (`--menu`, for a picture).
     menu_on_open: bool,
-    /// The card of the feature that was clicked, while it is open.
-    card: Option<FeatureCard>,
     /// A line of text being asked for (a new name, a folder), and what it is for.
     prompt: Option<(Asked, ask::Prompt)>,
     menus: Menus,
@@ -213,24 +223,17 @@ struct App {
     dropping: bool,
     /// The panel's own state: open folders, a name being typed, a menu.
     nav: Nav,
-    /// The plasmids open as tabs, in the strip's order. The one on screen is `opened`.
-    tabs: Vec<ConstructId>,
     /// The tabs last written down, with the project they were in, so they are written down only
     /// when they change.
     tabs_seen: Option<(PathBuf, prefs::OpenTabs)>,
     /// What is in front as last written down for an agent (`what_is_open`).
     front_seen: Option<bios_project::window::Front>,
-    tab_strip: TabStrip,
-    /// The editor pane: which tracks show, the split, and how each construct's map is viewed.
-    pane: pane::Pane,
     /// The Build place: what is being built, and the folder's page once something has been.
     build: build::Build,
     /// The Verify place: its panel, the front door, a board, an alignment.
     verify: verify::Verify,
     /// What kind each typed folder is (`build`, `verification`), for the panel's rows.
     folder_kinds: Vec<(String, String)>,
-    /// Oligos held against the open plasmid without landing in it (oligos.rs).
-    oligos: oligos::Oligos,
     /// Checking for and installing a newer Bios.
     updates: updates::Updates,
     /// The projects page, shown when no project is open.
@@ -272,37 +275,38 @@ impl App {
             stamp: 0,
             polled: Instant::now(),
             opened: None,
+            copies: std::collections::HashMap::new(),
+            ed: Editor::new(0),
+            split: None,
+            editors_made: 1,
+            here: egui::ViewportId::ROOT,
+            active: egui::ViewportId::ROOT,
+            windows: Vec::new(),
+            draw_window: None,
+            painted: 0,
+            focused_seen: None,
+            window_made: Vec::new(),
             loose: None,
             query: String::new(),
             searched: String::new(),
             found: None,
             revision: 0,
             problem: None,
-            plan: None,
-            strip_plan: None,
             styled: false,
             shot,
             shot_after,
             started: Instant::now(),
             frames: 0,
             shooting: false,
-            cursor: rows::Cursor::default(),
-            anchor: None,
-            map_anchor: 0,
-            map_turn: 0,
             edited: None,
             save_refused: false,
             to_clipboard: None,
+            #[cfg(target_os = "macos")]
             window_movable: None,
             script: None,
             copied: None,
             notice: None,
-            ask: None,
-            primer_ask: None,
-            find: None,
-            row_menu: None,
             menu_on_open: false,
-            card: None,
             prompt: None,
             menus: Menus::Window,
             dialogs: None,
@@ -314,15 +318,11 @@ impl App {
             work_hidden: false,
             dropping: false,
             nav: Nav::default(),
-            tabs: Vec::new(),
             tabs_seen: None,
             front_seen: None,
-            tab_strip: TabStrip::default(),
-            pane: pane::Pane::default(),
             build: build::Build::default(),
             verify: verify::Verify::default(),
             folder_kinds: Vec::new(),
-            oligos: oligos::Oligos::default(),
             updates: updates::Updates::default(),
             page: projects_page::Page::default(),
             recents: Recents::in_memory(),
@@ -338,30 +338,30 @@ impl App {
 
     /// The open tabs' names, in the strip's order.
     fn tab_names(&self) -> Vec<String> {
-        self.tabs.iter().map(|id| self.listing.iter().find(|l| l.id == *id).map(|l| l.name.clone()).unwrap_or_default()).collect()
+        self.ed.tabs.iter().map(|id| self.listing.iter().find(|l| l.id == *id).map(|l| l.name.clone()).unwrap_or_default()).collect()
     }
 
     /// Brings a tab to the front.
     fn select_tab(&mut self, which: usize) {
-        if let Some(id) = self.tabs.get(which).cloned() {
+        if let Some(id) = self.ed.tabs.get(which).cloned() {
             self.open_construct(&id);
         }
     }
 
     /// Steps through the tabs, round from the last to the first (`construct.stepNext`).
     fn step_tab(&mut self, by: isize) {
-        let count = self.tabs.len() as isize;
+        let count = self.ed.tabs.len() as isize;
         if count == 0 {
             return;
         }
-        let at = self.opened.as_ref().and_then(|o| self.tabs.iter().position(|t| *t == o.id)).map_or(0, |i| i as isize);
+        let at = self.opened.as_ref().and_then(|o| self.ed.tabs.iter().position(|t| *t == o.id)).map_or(0, |i| i as isize);
         self.select_tab((at + by).rem_euclid(count) as usize);
     }
 
     /// Closes a tab. When it was the one in front, the tab after it takes its place, or the one
     /// before (workspace/tabs.ts, `closeTabAt`); with none left, nothing is open.
     fn close_tab(&mut self, which: usize) {
-        let Some(id) = self.tabs.get(which).cloned() else {
+        let Some(id) = self.ed.tabs.get(which).cloned() else {
             return;
         };
         let front = self.opened.as_ref().is_some_and(|o| o.id == id);
@@ -369,14 +369,19 @@ impl App {
         if front && !self.save() {
             return;
         }
-        self.tabs.remove(which);
+        self.ed.tabs.remove(which);
+        // The last tab of one side of a split closes that side: the other takes the window.
+        if self.ed.tabs.is_empty() && self.split.is_some() {
+            self.close_side();
+            return;
+        }
         if front {
-            match self.tabs.get(which).or_else(|| which.checked_sub(1).and_then(|i| self.tabs.get(i))).cloned() {
+            match self.ed.tabs.get(which).or_else(|| which.checked_sub(1).and_then(|i| self.ed.tabs.get(i))).cloned() {
                 Some(next) => self.open_construct(&next),
                 None => {
                     self.opened = None;
-                    self.ask = None;
-                    self.card = None;
+                    self.ed.ask = None;
+                    self.ed.card = None;
                     self.revision += 1;
                 }
             }
@@ -409,8 +414,8 @@ impl App {
             return;
         }
         self.place = place;
-        self.ask = None;
-        self.card = None;
+        self.ed.ask = None;
+        self.ed.card = None;
         self.intro_arrive(place);
         if self.panel_hidden {
             self.panel_hidden = false;
@@ -424,6 +429,7 @@ impl App {
         if !self.save() {
             return;
         }
+        self.one_window();
         self.session = None;
         self.listing.clear();
         self.folders.clear();
@@ -437,11 +443,14 @@ impl App {
         self.found = None;
         self.problem = None;
         self.notice = None;
-        self.ask = None;
-        self.card = None;
+        self.ed.ask = None;
+        self.ed.card = None;
         self.prompt = None;
         self.place = Place::Edit;
-        self.tabs.clear();
+        self.ed.tabs.clear();
+        // Another project, or none: a split and the copies it shared are of this one.
+        self.split = None;
+        self.copies.clear();
         self.revision += 1;
         self.read_cards(true);
     }
@@ -480,7 +489,7 @@ impl App {
             undo: self.opened.as_ref().is_some_and(|o| o.editing.can_undo() || o.history.len() > 1),
             redo: self.opened.as_ref().is_some_and(|o| o.editing.can_redo()),
             unsaved: self.opened.as_ref().is_some_and(|o| o.editing.dirty_since().is_some()),
-            selection: self.opened.is_some() && self.cursor.selection.is_some(),
+            selection: self.opened.is_some() && self.ed.cursor.selection.is_some(),
             server: self.session.as_ref().is_some_and(|s| s.server().is_some()),
             shared: self.shared_on.is_some(),
             conflict: self.opened.as_ref().is_some_and(|o| self.conflicts.contains(&o.id)),
@@ -492,20 +501,22 @@ impl App {
             panel_hidden: self.panel_hidden,
             changes: self.changes_shown,
             work_hidden: self.work_hidden,
-            tabs: u8::try_from(self.tabs.len()).unwrap_or(u8::MAX),
+            tabs: u8::try_from(self.ed.tabs.len()).unwrap_or(u8::MAX),
         }
     }
 
-    /// The menus for this frame, and the commands chosen from them or by their shortcuts. `full`
-    /// loses its top strip when the menus are drawn in the window.
-    fn menu_commands(&mut self, ui: &mut egui::Ui, full: &mut Rect) -> Vec<String> {
-        let state = self.menu_state();
-        let gate = Gate {
+    /// What the menus may do now: nothing behind a modal, and no shortcut a text field takes.
+    fn menu_gate(&self, ctx: &egui::Context) -> Gate {
+        Gate {
             modal: self.dialogs.as_ref().is_some_and(Dialogs::is_open) || self.settings.is_some() || self.quick_open.is_some() || self.docs.is_some(),
             recording_shortcut: self.settings.as_ref().is_some_and(bios_ui::settings::Settings::recording),
-            text_editing: ui.ctx().egui_wants_keyboard_input(),
-        };
-        let options = LayoutOptions::new(APP_NAME);
+            text_editing: ctx.egui_wants_keyboard_input(),
+        }
+    }
+
+    /// The menus as they stand, and a number that changes whenever they would.
+    fn menu_bar(&self) -> (craft_menu::MenuBar, u64) {
+        let state = self.menu_state();
         let recent = self.recent();
         let tabs = self.tab_names();
         let keys = self.shortcuts();
@@ -517,25 +528,45 @@ impl App {
             (state.key(), &recent, &tabs, keys.to_saved()).hash(&mut hasher);
             hasher.finish()
         };
+        (menus::bar(state, &recent, &tabs, &keys), shown)
+    }
+
+    /// What was chosen from the system menu bar, for the window being worked on.
+    fn system_menu(&mut self, ctx: &egui::Context) -> Vec<String> {
+        if !matches!(self.menus, Menus::System(_)) {
+            return Vec::new();
+        }
+        let gate = self.menu_gate(ctx);
+        let (bar, shown) = self.menu_bar();
+        let options = LayoutOptions::new(APP_NAME);
+        let Menus::System(menu) = &mut self.menus else {
+            return Vec::new();
+        };
+        menu.set_gate(gate);
+        let chosen = menu.take_clicks(ctx).into_iter().map(|c| c.id).collect();
+        menu.sync_with(shown, || craft_menu::mac_layout(&bar, &options));
+        chosen
+    }
+
+    /// The menus drawn in this window, where the system has no menu bar, and the shortcuts pressed
+    /// in it: the commands chosen. `full` loses its top strip when the menus are drawn here.
+    fn menu_commands(&mut self, ui: &mut egui::Ui, full: &mut Rect) -> Vec<String> {
+        let state = self.menu_state();
+        let gate = self.menu_gate(ui.ctx());
+        let keys = self.shortcuts();
         let mut chosen: Vec<String> = Vec::new();
-        match &mut self.menus {
-            Menus::System(menu) => {
-                menu.set_gate(gate);
-                chosen.extend(menu.take_clicks(ui.ctx()).into_iter().map(|c| c.id));
-                menu.sync_with(shown, || craft_menu::mac_layout(&menus::bar(state, &recent, &tabs, &keys), &options));
-            }
-            Menus::Window => {
-                // The system layout would move About and Quit to an app menu the window has not got.
-                let target = if cfg!(target_os = "macos") { Target::Linux } else { Target::current() };
-                let laid_out = craft_menu::layout(&menus::bar(state, &recent, &tabs, &keys), target, &options).bar;
-                let strip = Rect::from_min_size(full.min, vec2(full.width(), MENU_BAR));
-                ui.painter().rect_filled(strip, 0.0, theme::CANVAS);
-                ui.painter().line_segment([strip.left_bottom(), strip.right_bottom()], Stroke::new(1.0, theme::HAIRLINE));
-                ui.scope_builder(UiBuilder::new().max_rect(strip.shrink2(vec2(8.0, 2.0))), |ui| {
-                    chosen.extend(MenuBarUi::new(&laid_out).gate(gate).show(ui).into_iter().map(|c| c.id));
-                });
-                full.min.y += MENU_BAR;
-            }
+        if let Menus::Window = self.menus {
+            let (bar, _) = self.menu_bar();
+            // The system layout would move About and Quit to an app menu the window has not got.
+            let target = if cfg!(target_os = "macos") { Target::Linux } else { Target::current() };
+            let laid_out = craft_menu::layout(&bar, target, &LayoutOptions::new(APP_NAME)).bar;
+            let strip = Rect::from_min_size(full.min, vec2(full.width(), MENU_BAR));
+            ui.painter().rect_filled(strip, 0.0, theme::CANVAS);
+            ui.painter().line_segment([strip.left_bottom(), strip.right_bottom()], Stroke::new(1.0, theme::HAIRLINE));
+            ui.scope_builder(UiBuilder::new().max_rect(strip.shrink2(vec2(8.0, 2.0))), |ui| {
+                chosen.extend(MenuBarUi::new(&laid_out).gate(gate).show(ui).into_iter().map(|c| c.id));
+            });
+            full.min.y += MENU_BAR;
         }
         if !gate.modal {
             chosen.extend(menus::pressed(ui.ctx(), state, &keys));
@@ -609,17 +640,17 @@ impl App {
             // in the sheet the pill turns into. Either reads the way the selection was made:
             // dragged leftwards, it reads in reverse.
             (menus::NEW_PRIMER, Some(_)) => {
-                if let Some((start, end)) = self.cursor.selection {
-                    self.ask = None;
-                    self.primer_ask = Some(PrimerAsk::new((start, end), self.anchor.is_none_or(|anchor| anchor <= start)));
+                if let Some((start, end)) = self.ed.cursor.selection {
+                    self.ed.ask = None;
+                    self.ed.primer_ask = Some(PrimerAsk::new((start, end), self.ed.anchor.is_none_or(|anchor| anchor <= start)));
                 }
             }
             (menus::NEW_FEATURE, Some(_)) => {
-                if let Some((start, _)) = self.cursor.selection {
-                    self.primer_ask = None;
-                    let forward = self.anchor.is_none_or(|anchor| anchor <= start);
-                    let span = self.cursor.selection.unwrap_or((start, start));
-                    self.ask = Some(Ask::new(ask::What::Feature, forward).serving(self.ask_targets(), span));
+                if let Some((start, _)) = self.ed.cursor.selection {
+                    self.ed.primer_ask = None;
+                    let forward = self.ed.anchor.is_none_or(|anchor| anchor <= start);
+                    let span = self.ed.cursor.selection.unwrap_or((start, start));
+                    self.ed.ask = Some(Ask::new(ask::What::Feature, forward).serving(self.ask_targets(), span));
                 }
             }
             // The last thing done: a step of this sitting when there is one, else the last saved change.
@@ -661,10 +692,12 @@ impl App {
                 self.remember_arrangement();
             }
             (menus::CLOSE_TAB, Some((id, _))) => {
-                if let Some(which) = self.tabs.iter().position(|t| *t == id) {
+                if let Some(which) = self.ed.tabs.iter().position(|t| *t == id) {
                     self.close_tab(which);
                 }
             }
+            (menus::TO_SIDE, Some((id, _))) => self.open_to_side(&id),
+            (menus::NEW_WINDOW, open) => self.open_in_new_window(open.map(|(id, _)| id)),
             (menus::NEXT_TAB, _) => self.step_tab(1),
             (menus::PREVIOUS_TAB, _) => self.step_tab(-1),
             (menus::CONNECT_AGENT, _) => {
@@ -775,13 +808,17 @@ impl App {
         if !self.save() {
             return;
         }
+        self.one_window();
         match Project::open(root) {
             Ok(project) => {
                 self.session = Some(Session::open(project, Who { actor: Actor::Human, source: "window".into(), session: None }));
                 let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
                 let shut_folders = self.prefs.as_ref().map(|store| store.get().projects.shut_folders_of(&root)).unwrap_or_default();
                 self.nav.arrive(shut_folders);
-                self.tabs.clear();
+                self.ed.tabs.clear();
+                // Another project, or none: a split and the copies it shared are of this one.
+                self.split = None;
+                self.copies.clear();
                 if let Err(e) = self.recents.opened(&root) {
                     self.notice = Some(format!("Bios could not add this folder to its list of projects: {e}"));
                 }
@@ -806,8 +843,6 @@ impl App {
             (Ok(listing), Ok(folders)) => {
                 self.listing = listing;
                 self.folders = folders;
-                let listing = &self.listing;
-                self.tabs.retain(|id| listing.iter().any(|l| l.id == *id));
                 self.deleted = project.deleted().unwrap_or_default();
                 self.folder_kinds =
                     project.folder_metas().unwrap_or_default().into_iter().map(|(path, meta)| (label(&path.with_extension("")), meta.kind)).collect();
@@ -815,6 +850,13 @@ impl App {
             }
             (Err(e), _) | (_, Err(e)) => self.problem = Some(e.to_string()),
         }
+        let here: Vec<ConstructId> = self.listing.iter().map(|l| l.id.clone()).collect();
+        self.ed.tabs.retain(|id| here.contains(id));
+        for editor in self.parked_editors() {
+            editor.tabs.retain(|id| here.contains(id));
+            editor.front = editor.front.take().filter(|id| here.contains(id));
+        }
+        self.prune_copies();
         // Reading can itself record something (a change made by another program), so the stamp
         // is taken again after it.
         if let Some(id) = self.opened.as_ref().map(|o| o.id.clone()) {
@@ -825,6 +867,14 @@ impl App {
                 self.revision += 1;
             }
         }
+        // The copies other editors show are read again too, so they show what was saved.
+        let mut copies = std::mem::take(&mut self.copies);
+        for opened in copies.values_mut() {
+            if let Err(e) = self.reread(opened) {
+                self.problem = Some(e);
+            }
+        }
+        self.copies = copies;
         self.verify_refresh();
         if let Some(session) = &self.session {
             self.stamp = session.project().stamp();
@@ -838,50 +888,79 @@ impl App {
         if !same && !self.save() {
             return;
         }
-        let Some(session) = &self.session else {
+        if same {
+            if let Some(mut opened) = self.opened.take() {
+                if let Err(e) = self.reread(&mut opened) {
+                    self.problem = Some(e);
+                }
+                self.opened = Some(opened);
+            }
+            self.show_editing(None, false);
+            return;
+        }
+        // Another editor showing this plasmid lends its working copy, so both show one.
+        let Some(opened) = self.copies.remove(id).or_else(|| self.load_copy(id)) else {
             return;
         };
-        let project = session.project();
+        self.let_go_of_opened();
+        self.ed.cursor = rows::Cursor::default();
+        self.ed.anchor = None;
+        self.ed.ask = None;
+        self.ed.card = None;
+        self.edited = None;
+        self.save_refused = false;
+        self.revision += 1;
+        if !self.ed.tabs.contains(&opened.id) {
+            self.ed.tabs.push(opened.id.clone());
+        }
+        self.opened = Some(opened);
+        self.show_editing(None, false);
+    }
+
+    /// A plasmid's working copy, read from the project as it is now.
+    fn load_copy(&mut self, id: &ConstructId) -> Option<Opened> {
+        let project = self.session.as_ref()?.project();
         match (project.read(id), project.history(id)) {
             (Ok(loaded), Ok(history)) => {
-                let parent = self.listing.iter().find(|l| &l.id == id).and_then(|l| l.derived_from.as_ref());
-                let lineage = Lineage {
-                    made_from: parent
-                        .map(|p| self.listing.iter().find(|l| &l.id == p).map_or_else(|| "a plasmid no longer here".to_string(), |l| label(&l.path))),
-                    made_into: self.listing.iter().filter(|l| l.derived_from.as_ref() == Some(id)).map(|l| label(&l.path)).collect(),
-                };
                 let token = format!("{}:{}", loaded.version, loaded.sha);
-                match self.opened.as_mut().filter(|_| same) {
-                    Some(opened) => {
-                        opened.history = history;
-                        opened.lineage = lineage;
-                        // The project moved on without this window. With nothing unsaved here its
-                        // version is taken. With something unsaved both are kept apart: the save
-                        // names the version it was made on, is refused, and says so.
-                        if opened.token != token && opened.editing.dirty_since().is_none() {
-                            opened.editing.replaced(loaded.construct);
-                            opened.token = token;
-                        }
-                    }
-                    None => {
-                        self.cursor = rows::Cursor::default();
-                        self.anchor = None;
-                        self.ask = None;
-                        self.card = None;
-                        self.edited = None;
-                        self.save_refused = false;
-                        self.revision += 1;
-                        if !self.tabs.contains(&loaded.id) {
-                            self.tabs.push(loaded.id.clone());
-                        }
-                        let editing = Editing::open(loaded.construct.clone());
-                        self.opened = Some(Opened { id: loaded.id, token, construct: loaded.construct, history, lineage, editing });
-                    }
-                }
-                self.show_editing(None, false);
+                let editing = Editing::open(loaded.construct.clone());
+                Some(Opened { id: loaded.id, token, construct: loaded.construct, history, lineage: self.lineage(id), editing })
             }
-            (Err(e), _) | (_, Err(e)) => self.problem = Some(e.to_string()),
+            (Err(e), _) | (_, Err(e)) => {
+                self.problem = Some(e.to_string());
+                None
+            }
         }
+    }
+
+    /// What a plasmid was made from and what was made from it, as the Changes column names them.
+    fn lineage(&self, id: &ConstructId) -> Lineage {
+        let parent = self.listing.iter().find(|l| &l.id == id).and_then(|l| l.derived_from.as_ref());
+        Lineage {
+            made_from: parent
+                .map(|p| self.listing.iter().find(|l| &l.id == p).map_or_else(|| "a plasmid no longer here".to_string(), |l| label(&l.path))),
+            made_into: self.listing.iter().filter(|l| l.derived_from.as_ref() == Some(id)).map(|l| label(&l.path)).collect(),
+        }
+    }
+
+    /// Reads a working copy's plasmid again, for its history and for a version someone else saved.
+    fn reread(&self, opened: &mut Opened) -> Result<(), String> {
+        let Some(session) = &self.session else {
+            return Ok(());
+        };
+        let project = session.project();
+        let loaded = project.read(&opened.id).map_err(|e| e.to_string())?;
+        opened.history = project.history(&opened.id).map_err(|e| e.to_string())?;
+        opened.lineage = self.lineage(&opened.id);
+        // The project moved on without this window. With nothing unsaved here its version is
+        // taken. With something unsaved both are kept apart: the save names the version it was
+        // made on, is refused, and says so.
+        let token = format!("{}:{}", loaded.version, loaded.sha);
+        if opened.token != token && opened.editing.dirty_since().is_none() {
+            opened.editing.replaced(loaded.construct);
+            opened.token = token;
+        }
+        Ok(())
     }
 
     /// Copies a plasmid under a free name ("… copy", "… copy 2"), and opens the copy.
@@ -1044,7 +1123,7 @@ impl App {
         self.open_construct(id);
         if let (Some((start, end)), Some(opened)) = (span, self.opened.as_mut().filter(|o| o.id == *id)) {
             opened.editing.select(start, end);
-            self.anchor = None;
+            self.ed.anchor = None;
             self.show_editing(None, true);
         }
     }
@@ -1061,15 +1140,15 @@ impl App {
             // A card is about one feature. When that feature is gone or is another one now, the
             // card has nothing true to say.
             let still = |card: &FeatureCard| opened.construct.features.get(card.feature).is_some_and(|f| f.name == card.was.name);
-            if !self.card.as_ref().is_some_and(still) {
-                self.card = None;
+            if !self.ed.card.as_ref().is_some_and(still) {
+                self.ed.card = None;
             }
         }
         let (caret, selection) = (opened.editing.caret(), opened.editing.selection());
-        if caret != self.cursor.caret || selection != self.cursor.selection {
+        if caret != self.ed.cursor.caret || selection != self.ed.cursor.selection {
             let last = opened.construct.len().saturating_sub(1);
             let reveal = reveal.then(|| opened.editing.cursor().min(last));
-            self.cursor = rows::Cursor { caret, selection, moved: now, reveal };
+            self.ed.cursor = rows::Cursor { caret, selection, moved: now, reveal };
             // A note about the last copy has been read once the person has moved on.
             self.notice = None;
         }
@@ -1086,7 +1165,7 @@ impl App {
                 self.edited = Some(Instant::now());
                 self.save_refused = false;
                 self.problem = None;
-                self.card = None;
+                self.ed.card = None;
             }
             Ok(false) => {}
             Err(why) => self.problem = Some(why),
@@ -1108,7 +1187,32 @@ impl App {
     /// Saves what was changed by hand, as one entry in the history. True when nothing is left
     /// unsaved, which is what anything that is about to read or change the project needs first.
     fn save(&mut self) -> bool {
-        let (Some(opened), Some(session)) = (self.opened.as_mut(), &self.session) else {
+        // The copy in front, and any other editor's or window's: typing can happen in a window
+        // that is not the one in front.
+        let mut opened = self.opened.take();
+        let mut wrote = false;
+        let mut done = opened.as_mut().is_none_or(|o| self.write_copy(o, &mut wrote));
+        self.opened = opened;
+        let dirty: Vec<ConstructId> = self.copies.iter().filter(|(_, o)| o.editing.dirty_since().is_some()).map(|(id, _)| id.clone()).collect();
+        for id in dirty {
+            if let Some(mut copy) = self.copies.remove(&id) {
+                done &= self.write_copy(&mut copy, &mut wrote);
+                self.copies.insert(id, copy);
+            }
+        }
+        if done {
+            self.edited = None;
+        }
+        if wrote {
+            self.refresh();
+        }
+        done
+    }
+
+    /// Writes one working copy's unsaved changes, as one entry in its history. True when nothing
+    /// of it is left unsaved; `wrote` is set when something was written.
+    fn write_copy(&mut self, opened: &mut Opened, wrote: &mut bool) -> bool {
+        let Some(session) = &self.session else {
             return true;
         };
         let (true, Some(working)) = (opened.editing.dirty_since().is_some(), opened.editing.construct()) else {
@@ -1128,9 +1232,8 @@ impl App {
             Ok(loaded) => {
                 opened.token = format!("{}:{}", loaded.version, loaded.sha);
                 opened.editing.saved(loaded.construct);
-                self.edited = None;
                 self.problem = None;
-                self.refresh();
+                *wrote = true;
                 true
             }
             Err(failure) => {
@@ -1174,7 +1277,7 @@ impl App {
     fn keys(&mut self, ctx: &egui::Context) {
         if self.opened.is_none()
             || self.place != Place::Edit
-            || self.ask.is_some()
+            || self.ed.ask.is_some()
             || self.prompt.is_some()
             || self.settings.is_some()
             || self.quick_open.is_some()
@@ -1184,7 +1287,7 @@ impl App {
         {
             return;
         }
-        let per_row = self.plan.as_ref().map_or(0, rows::Plan::bps_per_row);
+        let per_row = self.ed.plan.as_ref().map_or(0, rows::Plan::bps_per_row);
         for event in ctx.input(|i| i.events.clone()) {
             match event {
                 egui::Event::Text(text) => self.edit(|editing| editing.type_text(&text)),
@@ -1233,7 +1336,7 @@ impl App {
         if !self.save() {
             return;
         }
-        let (Some(opened), Some((start, end))) = (&self.opened, self.cursor.selection) else {
+        let (Some(opened), Some((start, end))) = (&self.opened, self.ed.cursor.selection) else {
             return;
         };
         let (id, token) = (opened.id.clone(), opened.token.clone());
@@ -1254,7 +1357,7 @@ impl App {
             if let Some(opened) = self.opened.as_mut() {
                 opened.editing.put_caret(end);
             }
-            self.anchor = Some(end);
+            self.ed.anchor = Some(end);
             self.show_editing(None, false);
         }
     }
@@ -1264,7 +1367,7 @@ impl App {
         if let Some(opened) = self.opened.as_mut() {
             opened.editing.point(anchor, gap);
         }
-        self.anchor = Some(anchor);
+        self.ed.anchor = Some(anchor);
         self.show_editing(Some(now), false);
     }
 
@@ -1322,9 +1425,10 @@ impl App {
     /// A press or a drag on the map. A drag round the ring keeps counting past the origin, so it
     /// selects through it; a shift-press extends the short way round.
     fn map_gesture(&mut self, gesture: map::MapGesture, now: f64) {
+        self.ed.sweeping = matches!(gesture, map::MapGesture::Press { .. } | map::MapGesture::Drag { .. });
         // The feature panel stays open while the person works elsewhere, as in the web app; only
         // a press on another feature re-points it.
-        self.ask = None;
+        self.ed.ask = None;
         let Some(opened) = self.opened.as_mut() else {
             return;
         };
@@ -1337,25 +1441,27 @@ impl App {
         let mut clicked = None;
         match gesture {
             map::MapGesture::Press { gap, shift: false } => {
-                self.map_anchor = i64::try_from(gap).unwrap_or(0);
-                self.map_turn = 0;
+                self.ed.map_anchor = i64::try_from(gap).unwrap_or(0);
+                self.ed.map_turn = 0;
                 opened.editing.put_caret(gap);
             }
             map::MapGesture::Press { gap, shift: true } => {
                 let gap = i64::try_from(gap).unwrap_or(0);
                 let anchor = opened.editing.anchor().and_then(|a| i64::try_from(a).ok()).unwrap_or(gap);
                 let to = if opened.construct.circular { hit::ring_extend_to(anchor, gap, length) } else { gap };
-                self.map_anchor = anchor;
-                self.map_turn = to - gap;
+                self.ed.map_anchor = anchor;
+                self.ed.map_turn = to - gap;
                 apply(&mut opened.editing, drag_selection(anchor, to, length));
             }
-            map::MapGesture::Drag { gap } => apply(&mut opened.editing, drag_selection(self.map_anchor, gap.saturating_add(self.map_turn), length)),
+            map::MapGesture::Drag { gap } => {
+                apply(&mut opened.editing, drag_selection(self.ed.map_anchor, gap.saturating_add(self.ed.map_turn), length))
+            }
             map::MapGesture::Feature { start, end } => {
                 opened.editing.select(start, end);
                 clicked = opened.construct.features.iter().position(|f| f.start == start && f.end == end);
             }
         }
-        self.anchor = None;
+        self.ed.anchor = None;
         self.show_editing(Some(now), true);
         if let Some(feature) = clicked {
             self.open_card(feature);
@@ -1363,7 +1469,8 @@ impl App {
     }
 
     fn gesture(&mut self, gesture: rows::Gesture, now: f64) {
-        self.ask = None;
+        self.ed.ask = None;
+        self.ed.sweeping = matches!(gesture, rows::Gesture::Press { .. } | rows::Gesture::Drag { .. });
         match gesture {
             // A shift-click extends from the end the last gesture did not finish on, as a text
             // editor does: the anchor stays put however many times you shift-click.
@@ -1375,7 +1482,7 @@ impl App {
             // A drag belongs to the press that began it; one that began on a bar selects nothing more.
             rows::Gesture::Drag { gap } => {
                 if self.drag_primer(gap) {
-                } else if let Some(anchor) = self.anchor {
+                } else if let Some(anchor) = self.ed.anchor {
                     self.point(anchor, gap, now);
                 }
             }
@@ -1384,7 +1491,7 @@ impl App {
                 if let Some(opened) = self.opened.as_mut() {
                     opened.editing.select(start, end);
                 }
-                self.anchor = None;
+                self.ed.anchor = None;
                 self.show_editing(Some(now), false);
                 self.open_card(feature);
             }
@@ -1416,11 +1523,13 @@ impl App {
     fn poll(&mut self, ctx: &egui::Context) {
         if self.polled.elapsed() >= POLL {
             self.polled = Instant::now();
+            self.take_show(ctx);
             if self.session.as_ref().is_some_and(|s| s.project().stamp() != self.stamp) {
                 self.refresh();
             }
         }
-        if self.session.is_some() {
+        // Kept awake on every screen, so a request to show something is met within a moment.
+        if self.session.is_some() || self.recents.file().is_some() {
             ctx.request_repaint_after(POLL);
         }
     }
@@ -1478,7 +1587,10 @@ impl App {
         self.found = Some(found);
     }
 
-    fn work(&mut self, ui: &mut egui::Ui, rect: Rect) {
+    /// One editor's map and rows. `focused` is false for the other side of a split, which draws
+    /// what it shows but leaves what floats over a plasmid (the pill, cards, menus, Find) to the
+    /// side being worked on.
+    pub(crate) fn work(&mut self, ui: &mut egui::Ui, rect: Rect, focused: bool) {
         ui.painter().rect_filled(rect, 0.0, theme::CELL);
         let Some(c) = self.opened.as_ref().map(|o| &o.construct).or(self.loose.as_ref()) else {
             if self.session.is_some() {
@@ -1490,21 +1602,23 @@ impl App {
             return;
         };
         // What the layers let the map and the rows draw of it.
-        let drawn = pane::drawn(c, self.pane.layers);
+        let drawn = pane::drawn(c, self.ed.pane.layers);
         let c = drawn.as_ref();
         // The editor pane's column: the map, the split handle, the rows, the navigator seam.
         let key = self.opened.as_ref().map_or_else(|| "loose".to_string(), |o| o.id.as_str().to_string());
+        // Two editors on one plasmid scroll and zoom its rows apart.
+        let rows_key = self.ed.rows_key(&key);
         let length = i64::try_from(c.len()).unwrap_or(i64::MAX);
-        self.pane.keep_strip();
-        let layout = bios_layout::pane::pane_layout(f64::from(rect.height()), self.pane.focus, self.pane.map_frac, length > 0);
-        let sites = self.pane.sites(self.revision, c).to_vec();
-        let mut view = *self.pane.view(&key, c);
+        self.ed.pane.keep_strip();
+        let layout = bios_layout::pane::pane_layout(f64::from(rect.height()), self.ed.pane.focus, self.ed.pane.map_frac, length > 0);
+        let sites = self.ed.pane.sites(self.revision, c).to_vec();
+        let mut view = *self.ed.pane.view(&key, c);
         let map_band = layout.map.map(|b| pane::band_rect(rect, b));
         // The corner label is placed from the map's top left, which is the pane's in every view.
         let map_rect = map_band.unwrap_or(Rect::from_min_size(rect.min, vec2(rect.width(), 0.0)));
         let rows_rect = layout.rows.map(|b| pane::band_rect(rect, b)).unwrap_or(map_rect);
 
-        let on_map = map::MapCursor { caret: self.cursor.caret, selection: self.cursor.selection };
+        let on_map = map::MapCursor { caret: self.ed.cursor.caret, selection: self.ed.cursor.selection };
         // A hand on the map: a wheel over it or a press on it (`onWheelCapture`, `onPointerDownCapture`).
         if let Some(band) = map_band
             && ui.input(|i| {
@@ -1512,34 +1626,37 @@ impl App {
                     && (i.smooth_scroll_delta != egui::Vec2::ZERO || i.zoom_delta() != 1.0 || i.pointer.any_pressed())
             })
         {
-            self.pane.map_hand = ui.input(|i| i.time);
+            self.ed.pane.map_hand = ui.input(|i| i.time);
         }
         let revision = self.revision;
         // A picture is taken with the caret held steady, so that it is in it.
-        let cursor = rows::Cursor { moved: self.cursor.moved.filter(|_| self.shot.is_none() && !self.shooting), ..self.cursor };
+        let cursor = rows::Cursor { moved: self.ed.cursor.moved.filter(|_| self.shot.is_none() && !self.shooting), ..self.ed.cursor };
         // Brought into view once; after that the person scrolls where they like.
-        self.cursor.reveal = None;
-        self.oligos.refresh(self.opened.as_ref().map(|o| &o.id), c, revision);
+        self.ed.cursor.reveal = None;
+        self.ed.oligos.refresh(self.opened.as_ref().map(|o| &o.id), c, revision);
         let lit = rows::lit_feature(ui.ctx());
         let seamed = layout.seam.is_some();
         // The map's pane: the map, or past the letters in the split, the strip.
-        let mut strip = self.pane.strip;
+        let found = found_of(self.ed.find.as_ref());
+        let mut strip = self.ed.pane.strip;
         let mut strip_out = rows::StripOut::default();
         let map_gesture = match (map_band, strip.as_mut()) {
             (Some(band), Some(strip)) => {
-                let options = row_options(&self.pane, &self.oligos, &key, &sites, seamed, revision, lit, None);
-                strip_out = rows::show_strip(ui, band, c, revision, strip, &mut self.strip_plan, &cursor, options);
+                let options = row_options(&self.ed.pane, &self.ed.oligos, (&key, &rows_key), &sites, &found, seamed, revision, lit, None);
+                strip_out = rows::show_strip(ui, band, c, revision, strip, &mut self.ed.strip_plan, &cursor, options);
                 None
             }
-            (band, _) => band.and_then(|band| map::show_moving(ui, band, c, &on_map, &mut view.map, &mut self.pane.motion, &sites, self.pane.layers)),
+            (band, _) => {
+                band.and_then(|band| map::show_moving(ui, band, c, &on_map, &mut view.map, &mut self.ed.pane.motion, &sites, self.ed.pane.layers))
+            }
         };
         if let Some(handle) = layout.handle.map(|b| pane::band_rect(rect, b))
             && let Some(frac) = pane::split_handle(ui, handle, rect, layout.seam.map_or(0.0, |s| s.height() as f32))
         {
-            self.pane.map_frac = frac;
+            self.ed.pane.map_frac = frac;
         }
         if let Some(seam) = layout.seam.map(|b| pane::band_rect(rect, b)) {
-            let scene = map::scene_with(c, self.pane.layers.splice_scan);
+            let scene = map::scene_with(c, self.ed.pane.layers.splice_scan);
             let features: Vec<navigator::Feature> = scene
                 .features
                 .iter()
@@ -1552,7 +1669,7 @@ impl App {
             let cuts: Vec<i64> = sites.iter().map(|s| i64::try_from(s.top_cut).unwrap_or(0)).collect();
             // The rail marks the primers too (native only; see `navigator`), and the Binders layer
             // takes them off it as it does their lane in the rows.
-            let primers = if self.pane.layers.binders { navigator::primers_of(c) } else { Vec::new() };
+            let primers = if self.ed.pane.layers.binders { navigator::primers_of(c) } else { Vec::new() };
             let rail = navigator::Rail { features: &features, primers: &primers, cuts: &cuts };
             // The seam draws the strip's window while the strip is up, and moves it (`seamWindow`).
             match strip.as_mut() {
@@ -1563,21 +1680,21 @@ impl App {
                 None => navigator::show(ui, seam, length, rail, &mut view.map.vp, view.map.ring),
             }
         }
-        *self.pane.view(&key, c) = view;
-        self.pane.strip = strip;
+        *self.ed.pane.view(&key, c) = view;
+        self.ed.pane.strip = strip;
         let now = ui.input(|i| i.time);
         // The strip reports its window as the map reports its own, so the rows below follow it.
         let pane_window = strip.map_or(view.map.vp, |s| s.vp);
-        let center_on = map_band.and_then(|band| self.pane.follow_map(pane_window, f64::from(band.width()), length, now, &cursor));
+        let center_on = map_band.and_then(|band| self.ed.pane.follow_map(pane_window, f64::from(band.width()), length, now, &cursor));
         if let Some(vp) = strip_out.handed_back {
-            self.pane.strip_handed_back(&key, vp, f64::from(rect.width()), length, now);
+            self.ed.pane.strip_handed_back(&key, vp, f64::from(rect.width()), length, now);
         }
         // The name, length and description in the corner. Something typed and not saved yet is
         // the dot on its tab.
         plasmid_title::show(ui, map_rect, c);
 
-        let plan = &mut self.plan;
-        let options = row_options(&self.pane, &self.oligos, &key, &sites, seamed, revision, lit, center_on);
+        let plan = &mut self.ed.plan;
+        let options = row_options(&self.ed.pane, &self.ed.oligos, (&key, &rows_key), &sites, &found, seamed, revision, lit, center_on);
         let gesture = layout.rows.and_then(|_| {
             ui.scope_builder(UiBuilder::new().max_rect(rows_rect), |ui| {
                 ui.set_clip_rect(rows_rect);
@@ -1586,50 +1703,70 @@ impl App {
             .inner
         });
         // The floating tool row, standing on the seam.
-        let selection = self.cursor.selection.and_then(|(a, b)| Some((i64::try_from(a).ok()?, i64::try_from(b).ok()?)));
+        let selection = self.ed.cursor.selection.and_then(|(a, b)| Some((i64::try_from(a).ok()?, i64::try_from(b).ok()?)));
         let fold = bios_layout::fold_target::fold_target(length, c.circular, selection);
         let state = self.menu_state();
         let tools = canvas_tools::Tools {
             can_undo: state.undo,
             can_redo: state.redo,
-            focus: self.pane.focus,
-            style: view.map_style,
-            // Folding is not in Bios native, so Fold stays grey even where the web could fold.
-            fold_reason: Some(fold.reason.unwrap_or_else(|| "Fold — secondary structure, not in this version of Bios yet.".to_string())),
-            open: self.pane.panel,
-            side: self.pane.side,
+            focus: self.ed.pane.focus,
+            open: self.ed.pane.panel,
+            side: self.ed.pane.side,
         };
         let tools_bottom = rect.top() + bios_layout::pane::tools_bottom(f64::from(rect.height()), layout.seam.is_some()) as f32;
         let (tool, placed) = canvas_tools::show(ui, rect, tools_bottom, &tools);
-        if self.pane.panel == Some(canvas_tools::Panel::Layers) {
+        // What you SEE is set in the map's own corner; it is there only while a map is.
+        let mut corner = None;
+        let view_at = match map_band {
+            Some(band) => {
+                let tools = map_tools::MapTools {
+                    style: view.map_style,
+                    // Folding is not in Bios native, so Fold stays grey even where the web could fold.
+                    fold_reason: Some(fold.reason.unwrap_or_else(|| "Fold — secondary structure, not in this version of Bios yet.".to_string())),
+                    view_open: self.ed.pane.panel == Some(canvas_tools::Panel::Layers),
+                };
+                let (action, placed) = map_tools::show(ui, band, &tools);
+                corner = action;
+                placed.view
+            }
+            None => map_tools::view_anchor_without_map(rect),
+        };
+        match corner {
+            Some(map_tools::Action::Style(style)) => self.ed.pane.set_style(&key, style),
+            Some(map_tools::Action::View) => {
+                self.ed.pane.panel = if self.ed.pane.panel == Some(canvas_tools::Panel::Layers) { None } else { Some(canvas_tools::Panel::Layers) };
+            }
+            None => {}
+        }
+        if self.ed.pane.panel == Some(canvas_tools::Panel::Layers) {
             let splice_hits = c.features.iter().filter(|f| bios_layout::overview::display::is_splice_scan(&f.name)).count();
-            match view_tab::show_with(ui, placed.layers, self.pane.layers, splice_hits) {
+            match view_tab::show_under(ui, view_at, self.ed.pane.layers, splice_hits) {
                 Some(view_tab::Outcome::Changed(layers)) => self.set_layers(layers),
-                Some(view_tab::Outcome::Close) => self.pane.panel = None,
+                Some(view_tab::Outcome::Close) => self.ed.pane.panel = None,
                 None => {}
             }
         }
-        if self.pane.panel == Some(canvas_tools::Panel::Enzymes) {
-            match enzymes_menu::show(ui, placed.row.center().x, placed.enzymes, self.pane.cut_view, &sites, self.pane.layers.cut_names) {
-                Some(enzymes_menu::Outcome::Changed(view)) => self.pane.cut_view = view,
-                Some(enzymes_menu::Outcome::Close) => self.pane.panel = None,
+        if self.ed.pane.panel == Some(canvas_tools::Panel::Enzymes) {
+            match enzymes_menu::show(ui, placed.row.center().x, placed.enzymes, self.ed.pane.cut_view, &sites, self.ed.pane.layers.cut_names) {
+                Some(enzymes_menu::Outcome::Changed(view)) => self.ed.pane.cut_view = view,
+                Some(enzymes_menu::Outcome::Close) => self.ed.pane.panel = None,
                 Some(enzymes_menu::Outcome::OpenList) => {
-                    self.pane.panel = None;
-                    self.pane.side = Some(bios_ui::side_panel::Side::Enzymes);
+                    self.ed.pane.panel = None;
+                    self.ed.pane.side = Some(bios_ui::side_panel::Side::Enzymes);
                 }
-                Some(enzymes_menu::Outcome::NamesOn) => self.set_layers(view_tab::Layers { cut_names: true, ..self.pane.layers }),
+                Some(enzymes_menu::Outcome::NamesOn) => self.set_layers(view_tab::Layers { cut_names: true, ..self.ed.pane.layers }),
                 None => {}
             }
         }
         // Zoomed out past the letters, the rows hand back to the map.
         if let Some(rows::Gesture::ZoomedOut { base }) = gesture {
-            self.pane.rows_handed_back(&key, base, f64::from(rect.width()), length, now);
+            self.ed.pane.rows_handed_back(&key, base, f64::from(rect.width()), length, now);
         }
         // The rows and the strip are pointed at alike: a press places the caret, a bar opens its card.
         let opened = self.opened.is_some();
         for mut gesture in [gesture, strip_out.gesture].into_iter().flatten().filter(|_| opened) {
             if let rows::Gesture::Span { feature, .. } = &mut gesture
-                && let Some(file) = self.opened.as_ref().and_then(|o| pane::feature_in_file(&o.construct, self.pane.layers, *feature))
+                && let Some(file) = self.opened.as_ref().and_then(|o| pane::feature_in_file(&o.construct, self.ed.pane.layers, *feature))
             {
                 *feature = file;
             }
@@ -1642,15 +1779,16 @@ impl App {
         match tool {
             Some(canvas_tools::Action::Back) => self.command(menus::UNDO),
             Some(canvas_tools::Action::Forward) => self.command(menus::REDO),
-            Some(canvas_tools::Action::Style(style)) => self.pane.set_style(&key, style),
-            Some(canvas_tools::Action::Focus(focus)) => self.pane.focus = focus,
-            Some(canvas_tools::Action::Panel(canvas_tools::Panel::Contents)) => self.pane.toggle_side(bios_ui::side_panel::Side::Contents),
-            Some(canvas_tools::Action::Panel(which)) => self.pane.panel = if self.pane.panel == Some(which) { None } else { Some(which) },
+            Some(canvas_tools::Action::Focus(focus)) => self.ed.pane.focus = focus,
+            Some(canvas_tools::Action::Panel(canvas_tools::Panel::Contents)) => self.ed.pane.toggle_side(bios_ui::side_panel::Side::Contents),
+            Some(canvas_tools::Action::Panel(which)) => self.ed.pane.panel = if self.ed.pane.panel == Some(which) { None } else { Some(which) },
             None => {}
         }
         self.side_panels(ui, rect, tools_bottom);
         // The selection's read-out, the feature panel, the menu and Find (floating.rs).
-        self.floating(ui, rect, rows_rect);
+        if focused {
+            self.floating(ui, rect, rows_rect);
+        }
     }
 
     fn take_shot(&mut self, ctx: &egui::Context) {
@@ -1729,7 +1867,7 @@ impl eframe::App for App {
         }
         // `--hover x,y`: the pointer stands there, for a picture of what hovering shows. Moved
         // there only when it is elsewhere, so it stands still and a tooltip can come up.
-        if let Some(at) = self.oligos.hover_at.filter(|at| ctx.input(|i| i.pointer.latest_pos()) != Some(*at)) {
+        if let Some(at) = self.ed.oligos.hover_at.filter(|at| ctx.input(|i| i.pointer.latest_pos()) != Some(*at)) {
             raw_input.events.push(egui::Event::PointerMoved(at));
         }
     }
@@ -1775,7 +1913,6 @@ impl App {
             ui.ctx().request_discard("fonts installed");
             return;
         }
-        self.take_drop(ui.ctx());
         if self.dialogs.is_none() {
             let wake = ui.ctx().clone();
             self.dialogs = Some(Dialogs::new(Arc::new(move || wake.request_repaint())));
@@ -1784,12 +1921,52 @@ impl App {
         for (then, answer) in answers {
             self.answered(then, answer);
         }
-        let mut full = ui.ctx().content_rect();
-        for command in self.menu_commands(ui, &mut full) {
+        // The window the system has in front is the one menus act in, from when it comes forward.
+        let focused = Self::focused_window(ui.ctx());
+        if focused != self.focused_seen {
+            self.focused_seen = focused;
+            if let Some(id) = focused {
+                self.activate(id);
+            }
+        }
+        for command in self.system_menu(ui.ctx()) {
             self.command(&command);
         }
-        self.keys(ui.ctx());
-        // After the menus and the keys, either of which may have copied something this frame.
+        let active = self.active;
+        // `--draw-window`: another window's state drawn here, for a picture the system cannot take
+        // of that window itself.
+        let drawn = self.script.as_ref().and_then(script::Script::window).or(self.draw_window);
+        let main = drawn.and_then(|n| self.window_ids().get(n.saturating_sub(1)).copied()).unwrap_or(egui::ViewportId::ROOT);
+        self.enter(main);
+        let (full, work_rect) = self.window_ui(ui, Some(frame));
+        // What stands over the whole window is the main window's.
+        if let Some((what, mut prompt)) = self.prompt.take() {
+            match ask::prompt(ui, work_rect.left_top() + vec2(16.0, 58.0), &mut prompt) {
+                Some(ask::Outcome::Done) => self.asked(&what, &prompt.value()),
+                Some(ask::Outcome::Cancelled) => {}
+                None => self.prompt = Some((what, prompt)),
+            }
+        }
+        self.intro_layer(ui, work_rect);
+        self.quick_open_palette(ui, work_rect);
+        if let Some(docs) = self.docs.as_mut()
+            && docs.show(ui, ui.ctx().content_rect()).is_some()
+        {
+            self.docs = None;
+        }
+        self.settings_window(ui);
+        if let Some(dialogs) = &mut self.dialogs {
+            dialogs.show_pending(Some(&*frame));
+        }
+        self.drop_overlay(ui, full);
+        self.enter(active);
+        // A second window drawn before the main one has painted once finds the font texture not
+        // made yet, and egui-wgpu panics; the frames after are safe.
+        if self.painted >= 2 {
+            self.other_windows(ui.ctx());
+        }
+        self.painted = self.painted.saturating_add(1);
+        // After the menus and the keys of every window, any of which may have copied something.
         if let Some(text) = self.to_clipboard.take() {
             ui.ctx().copy_text(text);
         }
@@ -1804,21 +1981,80 @@ impl App {
             }
         }
         self.poll(ui.ctx());
-        self.search();
         self.updates.frame(ui.ctx());
+        #[cfg(target_os = "macos")]
+        craft_window::title_bar::sync_movable(ui.ctx(), &mut self.window_movable);
+        self.take_shot(ui.ctx());
+        if let Some(script) = self.script.as_mut() {
+            script.record(ui.ctx());
+        }
+    }
+
+    /// Every window but the main one, each in its own system window, drawn as the main one is.
+    /// Closing one closes only it.
+    fn other_windows(&mut self, ctx: &egui::Context) {
+        for id in self.window_ids().into_iter().filter(|id| *id != egui::ViewportId::ROOT) {
+            let builder = egui::ViewportBuilder::default()
+                .with_title("Bios")
+                .with_fullsize_content_view(true)
+                .with_titlebar_shown(false)
+                .with_title_shown(false)
+                .with_inner_size([1200.0, 800.0])
+                .with_min_inner_size([900.0, 560.0])
+                .with_drag_and_drop(true)
+                .with_app_id(APP_ID);
+            let mut closed = false;
+            ctx.show_viewport_immediate(id, builder, |ui, _| {
+                let active = self.active;
+                self.enter(id);
+                if self.here != id {
+                    return;
+                }
+                self.window_ui(ui, None);
+                if ui.input(|i| i.viewport().close_requested()) {
+                    // What was typed in it is saved before it goes; refused, it stays and says why.
+                    if self.save() {
+                        closed = true;
+                    } else {
+                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::CancelClose);
+                    }
+                }
+                self.enter(active);
+            });
+            if closed {
+                self.close_window(id);
+            }
+        }
+    }
+
+    /// One whole Bios window, the one whose state is in App's fields: its menus where they are
+    /// drawn in the window, its keys and drops, sidebar, tabs, editors and Changes. `frame` is the
+    /// main window's, which places the traffic lights. Says the window's rect and its work cell.
+    fn window_ui(&mut self, ui: &mut egui::Ui, frame: Option<&eframe::Frame>) -> (Rect, Rect) {
+        self.take_drop(ui.ctx());
+        let mut full = ui.ctx().content_rect();
+        for command in self.menu_commands(ui, &mut full) {
+            self.command(&command);
+        }
+        self.keys(ui.ctx());
+        self.search();
 
         let has_project = self.session.is_some();
         let on_page = !has_project && self.loose.is_none();
         let nav = ((has_project || on_page) && !self.panel_hidden).then_some(self.panel_width);
         let changes = (self.opened.is_some() && self.changes_shown).then_some(changes::WIDTH);
-        let columns = app_layout::columns(full, nav, has_project && !self.tabs.is_empty() && self.place != Place::Verify, changes);
+        let columns = app_layout::columns(full, nav, has_project && !self.ed.tabs.is_empty() && self.place != Place::Verify, changes);
         let work_rect = columns.cell;
         // The head band is the title bar (styles.css `.is-desktop .canvas-head`): its empty part
         // moves the window and double-clicking it zooms, as the system setting says. Laid down
         // before anything is drawn in the band, so the tabs and buttons there still take clicks.
         craft_window::title_bar::empty_area(ui, Rect::from_min_size(full.min, vec2(full.width(), theme::HEAD_H)));
         // `trafficLightPosition: { x: 19, y: 12 }` (main.cjs): 14pt buttons, centred in the head.
-        frame.set_traffic_lights_position(ui.ctx(), egui::Rangef::new(full.top(), full.top() + theme::HEAD_H), 19.0);
+        if let Some(frame) = frame {
+            frame.set_traffic_lights_position(ui.ctx(), egui::Rangef::new(full.top(), full.top() + theme::HEAD_H), 19.0);
+        }
+        // With the sidebar away the tabs start right of the traffic lights and its toggle.
+        let lead = columns.tabs.filter(|_| self.panel_hidden).map_or(0.0, |t| (sidebar::TOGGLE_END + 8.0 - (t.left() - full.left())).max(0.0));
 
         match (has_project, self.place) {
             (true, _) if self.work_hidden => {
@@ -1830,50 +2066,13 @@ impl App {
                 self.verify_work(ui, work_rect, hovering);
             }
             (true, place) if place != Place::Edit => empty_place(ui, work_rect, place),
-            _ => self.work(ui, work_rect),
+            (true, _) => self.editors(ui, work_rect, columns.tabs, lead),
+            _ => self.work(ui, work_rect, true),
         }
 
-        if let Some(tabs_rect) = columns.tabs.filter(|_| !self.work_hidden) {
-            let dirty = self.opened.as_ref().filter(|o| o.editing.dirty_since().is_some()).map(|o| o.id.clone());
-            let tabs: Vec<tab_strip::Tab> = self
-                .tabs
-                .iter()
-                .map(|id| {
-                    let listed = self.listing.iter().find(|l| l.id == *id);
-                    tab_strip::Tab {
-                        name: listed.map_or("", |l| l.name.as_str()),
-                        circular: listed.is_some_and(|l| l.circular),
-                        dirty: dirty.as_ref() == Some(id),
-                    }
-                })
-                .collect();
-            let active = self.opened.as_ref().and_then(|o| self.tabs.iter().position(|t| *t == o.id));
-            // With the sidebar away the tabs start right of the traffic lights and its toggle.
-            let lead = if self.panel_hidden { sidebar::TOGGLE_END + 8.0 - (tabs_rect.left() - full.left()) } else { 0.0 };
-            let pressed = self.tab_strip.show(ui, tabs_rect, lead.max(0.0), &tabs, active, theme::PLACE_EDIT);
-            match pressed {
-                // A tab's click lands in Edit (TabStrip.tsx: `selectTab`, then `setMode("edit")`).
-                Some(tab_strip::Pressed::Select(which)) => {
-                    self.go_to_place(Place::Edit);
-                    self.select_tab(which);
-                }
-                Some(tab_strip::Pressed::Close(which)) => self.close_tab(which),
-                Some(tab_strip::Pressed::Move(from, to)) => tab_strip::move_tab(&mut self.tabs, from, to),
-                Some(tab_strip::Pressed::CloseOthers(which)) => {
-                    if let Some(keep) = self.tabs.get(which).cloned() {
-                        self.open_construct(&keep);
-                        self.tabs.retain(|t| *t == keep);
-                    }
-                }
-                Some(tab_strip::Pressed::CloseRight(which)) => {
-                    let front_goes = self.opened.as_ref().and_then(|o| self.tabs.iter().position(|t| *t == o.id)).is_some_and(|at| at > which);
-                    if front_goes {
-                        self.select_tab(which);
-                    }
-                    self.tabs.truncate(which + 1);
-                }
-                None => {}
-            }
+        // Elsewhere than Edit the strip still shows the tabs of the editor being worked on.
+        if let Some(tabs_rect) = columns.tabs.filter(|_| !self.work_hidden && self.place != Place::Edit) {
+            self.tab_row(ui, tabs_rect, lead, true);
         }
 
         if let (true, Some(nav_rect)) = (has_project, columns.nav) {
@@ -1893,11 +2092,29 @@ impl App {
         {
             self.page.filter = filter;
         }
+        self.changes_column(ui, columns.changes);
 
+        if let Some(problem) = self.problem.as_ref().or(self.notice.as_ref()) {
+            let bar = Rect::from_min_max(pos2(work_rect.left(), work_rect.bottom() - 30.0), work_rect.max);
+            ui.painter().rect_filled(bar, 0.0, theme::CANVAS);
+            ui.painter().line_segment([bar.left_top(), bar.right_top()], Stroke::new(1.0, theme::HAIRLINE));
+            ui.painter().with_clip_rect(bar).text(
+                bar.left_center() + vec2(16.0, 0.0),
+                Align2::LEFT_CENTER,
+                problem,
+                theme::sans(12.0),
+                if self.problem.is_some() { theme::DANGER_TEXT } else { theme::MUTED },
+            );
+        }
+        (full, work_rect)
+    }
+
+    /// The Changes column, when it is shown, and what was chosen in it.
+    fn changes_column(&mut self, ui: &mut egui::Ui, rect: Option<Rect>) {
         let action = self
             .opened
             .as_ref()
-            .zip(columns.changes)
+            .zip(rect)
             .and_then(|(o, changes_rect)| changes::show(ui, changes_rect, &o.history, &o.lineage).map(|a| (o.id.clone(), a)));
         match action {
             Some((id, Action::Restore(version))) => {
@@ -1912,45 +2129,6 @@ impl App {
                 }
             }
             None => {}
-        }
-
-        if let Some((what, mut prompt)) = self.prompt.take() {
-            match ask::prompt(ui, work_rect.left_top() + vec2(16.0, 58.0), &mut prompt) {
-                Some(ask::Outcome::Done) => self.asked(&what, &prompt.value()),
-                Some(ask::Outcome::Cancelled) => {}
-                None => self.prompt = Some((what, prompt)),
-            }
-        }
-
-        if let Some(problem) = self.problem.as_ref().or(self.notice.as_ref()) {
-            let bar = Rect::from_min_max(pos2(work_rect.left(), work_rect.bottom() - 30.0), work_rect.max);
-            ui.painter().rect_filled(bar, 0.0, theme::CANVAS);
-            ui.painter().line_segment([bar.left_top(), bar.right_top()], Stroke::new(1.0, theme::HAIRLINE));
-            ui.painter().with_clip_rect(bar).text(
-                bar.left_center() + vec2(16.0, 0.0),
-                Align2::LEFT_CENTER,
-                problem,
-                theme::sans(12.0),
-                if self.problem.is_some() { theme::DANGER_TEXT } else { theme::MUTED },
-            );
-        }
-        self.intro_layer(ui, work_rect);
-        self.quick_open_palette(ui, work_rect);
-        if let Some(docs) = self.docs.as_mut()
-            && docs.show(ui, ui.ctx().content_rect()).is_some()
-        {
-            self.docs = None;
-        }
-        self.settings_window(ui);
-        if let Some(dialogs) = &mut self.dialogs {
-            dialogs.show_pending(Some(&*frame));
-        }
-        self.drop_overlay(ui, full);
-        #[cfg(target_os = "macos")]
-        craft_window::title_bar::sync_movable(ui.ctx(), &mut self.window_movable);
-        self.take_shot(ui.ctx());
-        if let Some(script) = self.script.as_mut() {
-            script.record(ui.ctx());
         }
     }
 }
@@ -1975,8 +2153,8 @@ impl App {
                 build::Request::Open(path) => {
                     if let Some(id) = self.listing.iter().find(|l| label(&l.path) == path).map(|l| l.id.clone()) {
                         self.open_construct(&id);
-                        if !self.tabs.contains(&id) {
-                            self.tabs.push(id);
+                        if !self.ed.tabs.contains(&id) {
+                            self.ed.tabs.push(id);
                         }
                     }
                 }
@@ -2081,7 +2259,10 @@ bios [<project folder or sequence file>] [--open <plasmid>] [--select <from>..<t
   --shot     save a picture of the window to this file and quit
   --after    wait this many seconds before taking the picture
   --input    feed this script of pointer, button, wheel and pinch steps into the window (see script.rs)
-  --record   save a picture every so often while the script runs, <dir>@<seconds>, then close";
+  --record   save a picture every so often while the script runs, <dir>@<seconds>, then close
+  --new-window   start with a second window open on the open plasmid, as Window > Open in New Window
+  --draw-window  draw the nth window (2 is the second) in the main window, for a picture: the
+                 system cannot take one of a second window itself";
 
 /// What the Build flags asked for, so `main` stays one sentence per thing it sets up.
 #[derive(Default)]
@@ -2118,26 +2299,40 @@ fn start_build(app: &mut App, start: BuildStart) {
     }
 }
 
+/// Where an Exact Find landed, to draw as ribbons while the bar is open. Alignment draws its own
+/// fits, so it gives none.
+fn found_of(find: Option<&(bios_ui::find_bar::FindBar, Vec<bios_ui::find_bar::FindMatch>, u64)>) -> Vec<rows::Found> {
+    find.filter(|(bar, ..)| !bar.aligns())
+        .map(|(_, matches, _)| matches.iter().map(|m| rows::Found { start: m.start, end: m.end, forward: m.forward }).collect())
+        .unwrap_or_default()
+}
+
 /// What the editor pane asks of the rows and of the strip beyond the construct itself.
 #[allow(clippy::too_many_arguments)]
 fn row_options<'a>(
     pane: &'a pane::Pane,
     oligos: &'a oligos::Oligos,
-    key: &str,
+    (key, rows_key): (&'a str, &'a str),
     sites: &'a [CutSite],
+    found: &'a [rows::Found],
     seamed: bool,
     revision: u64,
     lit: Option<usize>,
     center_on: Option<usize>,
 ) -> rows::Options<'a> {
     rows::Options {
+        key: rows_key,
         run_off: bios_layout::pane::rows_run_off(seamed) as f32,
         sites: Some(sites),
         layers: pane.layers,
         lit,
         binders: oligos.sites(),
         hits: oligos.aligner.hits(revision),
-        oligo_key: oligos.key(),
+        found,
+        // What Exact found is laid out with the oligos, so it changes their key too.
+        oligo_key: found
+            .iter()
+            .fold(oligos.key(), |k, f| k.wrapping_mul(1_000_003).wrapping_add(((f.start as u64) << 32) ^ (f.end as u64) ^ u64::from(f.forward))),
         translations: pane.translations_of(key),
         center_on,
     }
@@ -2151,11 +2346,11 @@ fn start_motion(app: &mut App, zoom: Option<&str>, spin: Option<&str>, focus: Op
     let c = opened.construct.clone();
     if let Some(focus) = focus {
         // The construct is brought to the front first, which would otherwise put it back to split.
-        app.pane.view(&key, &c);
+        app.ed.pane.view(&key, &c);
         match focus {
-            "map" => app.pane.focus = Focus::Map,
-            "split" => app.pane.focus = Focus::Split,
-            "sequence" => app.pane.focus = Focus::Sequence,
+            "map" => app.ed.pane.focus = Focus::Map,
+            "split" => app.ed.pane.focus = Focus::Split,
+            "sequence" => app.ed.pane.focus = Focus::Sequence,
             other => app.problem = Some(format!("--focus takes map, split or sequence, not {other}")),
         }
     }
@@ -2165,12 +2360,12 @@ fn start_motion(app: &mut App, zoom: Option<&str>, spin: Option<&str>, focus: Op
         let center = center.map(|c| c.trim().parse::<f64>().ok().filter(|c| c.is_finite()));
         match (width, center) {
             (Some(width), None | Some(Some(_))) => {
-                let view = app.pane.view(&key, &c);
+                let view = app.ed.pane.view(&key, &c);
                 let vp = set_width(view.map.vp, width);
                 let vp = center.flatten().map_or(vp, |c| set_center(vp, c));
                 view.map.vp = navigate::normalize(vp, view.map.ring);
                 // As if a hand had zoomed it there: the rows follow, as they do after a zoom.
-                app.pane.map_hand = f64::MAX;
+                app.ed.pane.map_hand = f64::MAX;
             }
             _ => app.problem = Some(format!("--zoom takes a width from 0 to 1, as 0.45 or 0.45@0.2, not {zoom}")),
         }
@@ -2180,18 +2375,28 @@ fn start_motion(app: &mut App, zoom: Option<&str>, spin: Option<&str>, focus: Op
         let now = 10.0;
         match value.trim().parse::<f64>().ok().and_then(|v| flywheel::pose(stage.trim(), v, now)) {
             Some(fly) => {
-                app.pane.view(&key, &c);
-                app.pane.motion.fly = fly;
-                app.pane.motion.frozen = true;
-                app.pane.motion.now = now;
+                app.ed.pane.view(&key, &c);
+                app.ed.pane.motion.fly = fly;
+                app.ed.pane.motion.frozen = true;
+                app.ed.pane.motion.now = now;
             }
             None => app.problem = Some(format!("--flywheel takes spin:<rpm under 1300>, leaving:<0..1>, gone or returning:<0..1>, not {spin}")),
         }
     }
 }
 
+/// `--new-window` and `--draw-window`: a second window from the start, and which window the
+/// main one draws for a picture.
+fn start_windows(app: &mut App, new_window: bool, draw_window: Option<usize>) {
+    if new_window {
+        app.command(menus::NEW_WINDOW);
+    }
+    app.draw_window = draw_window;
+}
+
 fn main() -> eframe::Result {
     bios_update::set_up(bios_update::After::ThisWindow);
+    bios_ui::picture::set_up();
     let mut args = std::env::args().skip(1);
     let (mut path, mut shot, mut open, mut search, mut after, mut window_menu) = (None, None, None, None, 0.0, false);
     let mut hide_panel = false;
@@ -2210,6 +2415,7 @@ fn main() -> eframe::Result {
     let (mut panel, mut enzyme_search, mut translate) = (None, None, None);
     let (mut drop_files, mut dropping) = (None, false);
     let (mut input, mut record): (Option<String>, Option<String>) = (None, None);
+    let (mut new_window, mut draw_window) = (false, None);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--shot" => shot = args.next().map(PathBuf::from),
@@ -2218,6 +2424,8 @@ fn main() -> eframe::Result {
             "--window-menu" => window_menu = true,
             "--hide-panel" => hide_panel = true,
             "--input" => input = args.next(),
+            "--new-window" => new_window = true,
+            "--draw-window" => draw_window = args.next().and_then(|n| n.parse::<usize>().ok()),
             "--record" => record = args.next(),
             "--select" => select = args.next(),
             "--ask" => asking = args.next(),
@@ -2268,7 +2476,7 @@ fn main() -> eframe::Result {
             return Ok(());
         }
     }
-    app.oligos.hover_at = hover;
+    app.ed.oligos.hover_at = hover;
     // A picture or a scripted run never asks the network.
     if !picture && app.script.is_none() {
         app.updates.enable();
@@ -2315,7 +2523,7 @@ fn main() -> eframe::Result {
         if let Some(opened) = app.opened.as_mut() {
             opened.editing.put_caret(gap);
         }
-        app.anchor = Some(gap);
+        app.ed.anchor = Some(gap);
         app.show_editing(None, true);
     }
     if let Some(name) = feature {
@@ -2325,9 +2533,9 @@ fn main() -> eframe::Result {
         match hit {
             Some((index, start, end)) => {
                 app.gesture(rows::Gesture::Span { feature: index, start, end }, 0.0);
-                app.cursor.moved = None;
-                app.cursor.reveal = Some(start);
-                if let Some(card) = app.card.as_mut().filter(|_| acts) {
+                app.ed.cursor.moved = None;
+                app.ed.cursor.reveal = Some(start);
+                if let Some(card) = app.ed.card.as_mut().filter(|_| acts) {
                     card.acts.open(None);
                 }
             }
@@ -2335,7 +2543,7 @@ fn main() -> eframe::Result {
         }
     }
     for label in layers {
-        app.pane.layers = app.pane.layers.flipped(&label);
+        app.ed.pane.layers = app.ed.pane.layers.flipped(&label);
     }
     // The Build place, as a picture can reach it: the place itself, what to put in, whether to
     // design it, and a folder's page.
@@ -2387,6 +2595,7 @@ fn main() -> eframe::Result {
         None => {}
     }
     app.flags(side::Flags { dropping, drop_files, panel, translate, enzyme_search });
+    start_windows(&mut app, new_window, draw_window);
     if let Some(query) = find.filter(|_| app.opened.is_some()) {
         app.open_find(Some(query));
     }

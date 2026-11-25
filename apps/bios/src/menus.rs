@@ -43,6 +43,10 @@ pub const TOGGLE_CHANGES: &str = "view.changes";
 /// ⌘B: the work column, the open plasmid's map and rows (`layout.toggleWork`).
 pub const TOGGLE_WORK: &str = "view.work";
 pub const CLOSE_TAB: &str = "tab.close";
+/// ⌘\: the plasmid in front, opened again in an editor beside this one (native only, PARITY.md).
+pub const TO_SIDE: &str = "tab.to_side";
+/// ⌥⌘N: another whole Bios window on this project, with the plasmid in front (native only).
+pub const NEW_WINDOW: &str = "window.new";
 pub const NEXT_TAB: &str = "tab.next";
 pub const PREVIOUS_TAB: &str = "tab.previous";
 /// Followed by which open tab, counted from 0: `tab.select:2`.
@@ -107,7 +111,8 @@ impl State {
             SYNC => self.shared && self.server,
             KEEP_MINE | TAKE_THEIRS => self.conflict,
             PLACE_EDIT | PLACE_BUILD | PLACE_VERIFY | TOGGLE_PANEL | TOGGLE_CHANGES | TOGGLE_WORK => self.project,
-            CLOSE_TAB => self.plasmid,
+            CLOSE_TAB | TO_SIDE => self.plasmid,
+            NEW_WINDOW => self.project,
             INTRO => !self.project || self.place != 0,
             NEXT_TAB | PREVIOUS_TAB => self.tabs > 1,
             _ => true,
@@ -191,9 +196,12 @@ pub(crate) const ITEMS: &[(&str, &str, &str, Option<Chord>)] = &[
     ("Share", "", "---", None),
     ("Share", KEEP_MINE, "Settle Conflict: Keep Mine", None),
     ("Share", TAKE_THEIRS, "Settle Conflict: Take Theirs", None),
-    // The open tabs (keys/commands.ts: `construct.stepPrev` Ctrl+Shift+Tab, `construct.stepNext`
+    // Two plasmids at once, side by side or in another window (native only). Then the open tabs (keys/commands.ts: `construct.stepPrev` Ctrl+Shift+Tab, `construct.stepNext`
     // Ctrl+Tab, `construct.select1`… Mod+1…). The tabs themselves follow, each under its number.
     ("Window", PREVIOUS_TAB, "Previous Plasmid", Some(Chord::new(Mods { cmd: false, ctrl: true, alt: false, shift: true }, Key::Tab))),
+    ("Window", TO_SIDE, "Open to the Side", Some(Chord::new(Mods::CMD, Key::Backslash))),
+    ("Window", NEW_WINDOW, "Open in New Window", Some(Chord::new(ALT_CMD, Key::N))),
+    ("Window", "", "---", None),
     ("Window", NEXT_TAB, "Next Plasmid", Some(Chord::new(Mods { cmd: false, ctrl: true, alt: false, shift: false }, Key::Tab))),
     ("Help", DOCS, "Bios Documentation", None),
     ("Help", WELCOME, "How Bios Works", None),

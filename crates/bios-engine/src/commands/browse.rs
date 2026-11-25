@@ -37,7 +37,7 @@ pub const COMMANDS: &[CommandSpec] = &[
     },
     CommandSpec {
         name: "import_plasmid",
-        description: "Bring a GenBank or FASTA file from outside the project in as a copy. The file itself is only read, never changed. Importing a file that is already here unchanged gives back the plasmid that is here, so there is never a second copy.",
+        description: "Bring a GenBank or FASTA file from outside the project in as a copy. The file itself is only read, never changed. Importing a file that is already here unchanged gives back the plasmid that is here, so there is never a second copy. To work on files that already sit in a folder (iCloud, Google Drive, OneDrive, Dropbox, anywhere), do not import them: open that folder with open_project, or pass its path as `project`, and Bios works on them where they are.",
         params: &[
             Param { name: "file", kind: Kind::String, required: true, description: "Full path of the GenBank or FASTA file on this computer." },
             Param {

@@ -16,5 +16,8 @@ local-mirror = ["bios-update/local-mirror"]
 bios-engine = { workspace = true }
 bios-mcp = { workspace = true }
 bios-project = { workspace = true }
+# Drawing, for `draw_plasmid`: an agent connected to this gets the same pictures the window
+# draws, and the toolkit lays them out without ever opening a window.
+bios-ui = { workspace = true }
 bios-update = { workspace = true }
 serde_json = { workspace = true }

@@ -6,6 +6,7 @@ mod app;
 mod layers;
 mod release;
 mod ship;
+mod smoke;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -25,7 +26,9 @@ cargo xtask <command>
             ci, then app, then install it in ~/Applications on another Mac over ssh and open it
   release [--no-check]
             ci, then app, then the release files in dist/ (the disk image the updater and
-            install.sh download, and SHA256SUMS.txt); prints the gh command, does not run it";
+            install.sh download, and SHA256SUMS.txt); prints the gh command, does not run it
+  smoke     the built programs answer for themselves on this machine: the command line, a real
+            MCP conversation, the melting temperature, and the window drawing itself";
 
 fn main() -> ExitCode {
     let result = match std::env::args().nth(1).as_deref() {
@@ -33,6 +36,7 @@ fn main() -> ExitCode {
         Some("assets") => root().and_then(|r| assets_check(&r)),
         Some("layers") => root().and_then(|r| layers::run(&r)),
         Some("app") => root().and_then(|r| app::run(&r)),
+        Some("smoke") => root().and_then(|r| smoke::run(&r)),
         Some("release") => {
             let check = !std::env::args().skip(2).any(|a| a == "--no-check");
             root().and_then(|r| release::run_release(&r, check))

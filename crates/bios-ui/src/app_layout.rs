@@ -15,7 +15,7 @@
 //! THERE IS NO CHAT") is the one that applies, as on the live site where the AI is off. The native
 //! Changes column, which the web has no counterpart for, sits at the right edge when it is shown.
 
-use egui::{Rect, pos2};
+use egui::{CursorIcon, Rect, Sense, Stroke, pos2};
 
 use crate::theme;
 
@@ -54,11 +54,70 @@ pub fn columns(full: Rect, nav: Option<f32>, tabs: bool, changes: Option<f32>) -
     Columns { nav, tabs, cell, changes }
 }
 
+/// The narrowest either side of a split may be dragged: room for the map's corner tools and a
+/// row of bases. A work column too narrow for two of these splits in half.
+pub const SIDE_MIN: f32 = 360.0;
+
+/// Where a split's divider may stand in a work column `width` wide, as a share from the left.
+pub fn clamp_split(frac: f32, width: f32) -> f32 {
+    let frac = if frac.is_finite() { frac } else { 0.5 };
+    let least = if width > 2.0 * SIDE_MIN { SIDE_MIN / width } else { 0.5 };
+    frac.clamp(least, 1.0 - least)
+}
+
+/// A work column cut in two side by side at `frac` (native only: Max asked to see two plasmids
+/// at once, 2026-11-25). The divider is the right side's first point, a hairline; each side keeps
+/// at least [`SIDE_MIN`].
+pub fn sides(work: Rect, frac: f32) -> (Rect, Rect) {
+    let x = (work.left() + work.width() * clamp_split(frac, work.width())).round();
+    (Rect::from_min_max(work.min, pos2(x, work.bottom())), Rect::from_min_max(pos2(x, work.top()), work.max))
+}
+
+/// The divider between a split's sides, at the right side's left edge, `work` tall: drawn, and
+/// dragged. Says the divider's new place as a share of `work`, and whether the drag ended;
+/// a double-click puts it back in the middle.
+pub fn split_divider(ui: &mut egui::Ui, work: Rect, right: Rect) -> Option<(f32, bool)> {
+    let x = right.left() + 0.5;
+    let painter = ui.painter().with_clip_rect(work);
+    painter.line_segment([pos2(x, work.top()), pos2(x, work.bottom())], Stroke::new(1.0, theme::HAIRLINE_STRONG));
+    // Clear of the head band, which moves the window and holds the tabs.
+    let grip = Rect::from_min_max(pos2(x - 4.0, work.top() + theme::HEAD_H), pos2(x + 4.0, work.bottom()));
+    let response = ui.interact(grip, ui.scope_id().with("split-divider"), Sense::click_and_drag());
+    if response.hovered() || response.dragged() {
+        ui.ctx().set_cursor_icon(CursorIcon::ResizeColumn);
+        painter.line_segment([pos2(x, work.top()), pos2(x, work.bottom())], Stroke::new(1.0, theme::ACCENT));
+    }
+    let frac = if response.double_clicked() {
+        Some((0.5, true))
+    } else {
+        response
+            .interact_pointer_pos()
+            .filter(|_| response.dragged() || response.drag_stopped())
+            .map(|at| (clamp_split((at.x - work.left()) / work.width().max(1.0), work.width()), response.drag_stopped()))
+    };
+    response.on_hover_text("Drag to resize · double-click to split in half");
+    frac
+}
+
 #[cfg(test)]
 mod tests {
     use egui::{Rect, pos2};
 
-    use super::{clamp_nav, columns};
+    use super::{SIDE_MIN, clamp_nav, clamp_split, columns, sides};
+
+    #[test]
+    fn a_split_keeps_each_side_wide_enough_and_halves_a_narrow_column() {
+        let work = Rect::from_min_max(pos2(200.0, 38.0), pos2(1440.0, 900.0));
+        let (left, right) = sides(work, 0.5);
+        assert_eq!((left.left(), left.right(), right.left(), right.right()), (200.0, 820.0, 820.0, 1440.0));
+        let (left, right) = sides(work, 0.05);
+        assert_eq!(left.width(), SIDE_MIN);
+        assert!(right.width() > SIDE_MIN);
+        let (_, right) = sides(work, 0.99);
+        assert_eq!(right.width(), SIDE_MIN);
+        assert_eq!(clamp_split(0.2, 600.0), 0.5, "too narrow for two: half each");
+        assert_eq!(clamp_split(f32::NAN, 1240.0), 0.5);
+    }
 
     #[test]
     fn the_sidebar_and_the_work_run_edge_to_edge_from_the_windows_left() {

@@ -65,6 +65,13 @@ impl Did {
     }
 }
 
+/// Where an editor's caret or selection stood in a working copy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Spot {
+    selection: Option<Selection>,
+    caret: Option<usize>,
+}
+
 /// A plasmid being edited by hand.
 pub struct Editing {
     slice: EditorSlice,
@@ -383,6 +390,22 @@ impl Editing {
         self.keep_place(selection, caret);
         self.dirty = None;
         self.done.clear();
+    }
+
+    /// Where the caret or selection is, to come back to: one working copy can be shown by two
+    /// editors, and each keeps its own place in it.
+    pub fn spot(&self) -> Spot {
+        Spot { selection: self.slice.selection(), caret: self.slice.caret() }
+    }
+
+    /// Goes back to a place taken with [`Editing::spot`], as far as the bases still exist.
+    pub fn go_to_spot(&mut self, spot: Spot) {
+        if spot.selection.is_none() && spot.caret.is_none() {
+            // Nowhere yet: another editor's caret is not this one's.
+            self.slice.apply_unrecorded(Action::MoveCaret(None));
+            return;
+        }
+        self.keep_place(spot.selection, spot.caret);
     }
 
     /// The caret or selection stays where it was when the bases under it still exist.

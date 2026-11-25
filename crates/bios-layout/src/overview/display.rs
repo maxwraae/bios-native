@@ -195,7 +195,8 @@ pub fn is_source(kind: &str) -> bool {
 }
 
 /// A primer lives in the file as a `primer_bind` feature, but it is not drawn in the feature lanes:
-/// primers are the construct's own list of oligos and have their own track in the sequence rows.
+/// primers are the construct's own list of oligos and have a track of their own — the primer lanes
+/// in the sequence rows, and ([`display_primers`]) a lane off the backbone on the map.
 pub fn is_primer_bind(kind: &str) -> bool {
     kind.eq_ignore_ascii_case("primer_bind")
 }
@@ -269,8 +270,8 @@ impl Span for MapFeature {
 }
 
 /// What the map is handed (`toDisplaySequence`): the shown features only, each with its display
-/// name and colour family. `source` is always left out, primers are left to their own track, and
-/// splice-scan hits are shown only when `show_splice_scan` asks for them.
+/// name and colour family. `source` is always left out, primers are left to their own lane
+/// ([`display_primers`]), and splice-scan hits are shown only when `show_splice_scan` asks for them.
 ///
 /// The family is read from the file's own name and the direction from the shown one, as the web
 /// app does.
@@ -278,20 +279,32 @@ pub fn display_features(file: &[FileFeature<'_>], show_splice_scan: bool) -> Vec
     file.iter()
         .enumerate()
         .filter(|(_, f)| !is_source(f.kind) && (show_splice_scan || !is_splice_scan(f.name)) && !is_primer_bind(f.kind))
-        .map(|(source, f)| {
-            let name = humanize_name(f.name);
-            MapFeature {
-                start: f.start,
-                end: f.end,
-                directional: is_directional(f.kind, &name),
-                name,
-                kind: f.kind.to_owned(),
-                forward: f.forward,
-                locations: f.locations.clone(),
-                location_unsupported: f.location_unsupported,
-                role: role_for_feature(f.kind, f.name),
-                source,
-            }
-        })
+        .map(|(source, f)| shown(source, f))
         .collect()
+}
+
+/// What the map draws in its own primer lane: the file's `primer_bind` features, and nothing else.
+///
+/// A DEPARTURE from the Bios web app, which draws no oligos on its map (PARITY.md, Max 2026-11-25).
+/// A primer is read like any other annotation here — the same display name, the same direction —
+/// because it is a stretch of the molecule; what differs is where it is drawn and how lightly.
+pub fn display_primers(file: &[FileFeature<'_>]) -> Vec<MapFeature> {
+    file.iter().enumerate().filter(|(_, f)| is_primer_bind(f.kind)).map(|(source, f)| shown(source, f)).collect()
+}
+
+/// One file feature as the map draws it.
+fn shown(source: usize, f: &FileFeature<'_>) -> MapFeature {
+    let name = humanize_name(f.name);
+    MapFeature {
+        start: f.start,
+        end: f.end,
+        directional: is_directional(f.kind, &name),
+        name,
+        kind: f.kind.to_owned(),
+        forward: f.forward,
+        locations: f.locations.clone(),
+        location_unsupported: f.location_unsupported,
+        role: role_for_feature(f.kind, f.name),
+        source,
+    }
 }

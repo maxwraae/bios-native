@@ -18,7 +18,7 @@ use super::labels::{fit_label, label_pad, label_spacing};
 use super::presence::{MIN_MARK_PX, SEAM_PX, arc_mark, arc_seam};
 use super::projection::{LINE_MARGIN, NAV_RESERVE, Point, RingGeom, morph_point, ring_geom};
 use super::ring_map::ring_margin_for;
-use super::scene::{CUT_FONT, Frame, MapScene, lane_depth, lane_inset};
+use super::scene::{CUT_FONT, Frame, MapScene, lane_depth, lane_inset, primer_block};
 use super::viewport::{ring_delta, split_span, wrap1};
 
 /// Where the line's axis sits for the unroll to arrive at: low in the frame, with its numbers
@@ -82,7 +82,11 @@ pub fn layout_morph(scene: &MapScene, frame: Frame, t: f64, mut measure: impl Fn
     // `mp_lane` steps in by the shared lane-0 inset first, so a feature sits the same distance off
     // the axis whether the map is a ring, a line, or halfway between.
     let mp = |frac: f64, off: f64| morph_point(frac, center, width, t, frame.w, frame.h, geom, LINE_MARGIN, Some(off), Some(axis_y));
-    let mp_lane = |frac: f64, depth: f64| mp(frac, lane_inset(sp) + depth);
+    // The primer track takes the first room off the axis at both ends of the lerp, so the features
+    // step past it here too; without that they would jump a lane's worth as the unroll begins. The
+    // oligos themselves are not drawn mid-unroll, as the cuts and the scale are not.
+    let block = primer_block(scene.primer_lanes_used(), sp);
+    let mp_lane = |frac: f64, depth: f64| mp(frac, lane_inset(sp) + block + depth);
     let shown = |frac: f64| ring_delta(center, frac).abs() <= half_span;
 
     // How many PIXELS one unit of bp-fraction covers, measured through the actual transform. The

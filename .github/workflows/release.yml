@@ -1,0 +1,141 @@
+name: Release
+
+# Push a tag and GitHub builds the release, on both kinds of machine, from one source tree.
+#
+#   git tag v0.1.4 && git push --tags
+#
+# A Mac runner makes the disk image, a PC runner makes the portable zip, and the two checksum
+# files are joined into one SHA256SUMS.txt. The release is left as a DRAFT on purpose: publishing
+# is a decision, the notes are written by hand, and an installed copy only ever looks at the
+# newest *published* release, so a draft changes nothing for anyone until someone presses the
+# button.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, name: macOS, artifact: release-macos }
+          - { os: windows-latest, name: Windows, artifact: release-windows }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@v2.22.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: step-security/dtolnay-rust-toolchain@v1.0.0
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - uses: step-security/rust-cache@v2.9.2
+        with:
+          save-if: false
+
+      # Five seconds here rather than two forty-minute builds and a wrongly named release.
+      - name: The tag and the version in Cargo.toml must agree
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          set -eu
+          tagged=${GITHUB_REF_NAME#v}
+          in_manifest=$(sed -n '/^\[workspace.package\]/,/^\[/p' Cargo.toml | sed -n 's/^version *= *"\(.*\)"/\1/p' | head -n 1)
+          [ "$tagged" = "$in_manifest" ] || {
+            echo "The tag says $tagged and Cargo.toml says $in_manifest. Nothing was built." >&2
+            exit 1
+          }
+          echo "Bios $tagged"
+
+      # The tag is cut from a commit the checks have already passed on, so ci is not run again.
+      - name: Build the release file for this machine
+        run: cargo xtask release --no-check
+
+      - name: Prove it before anyone can download it
+        if: runner.os == 'macOS'
+        run: cargo xtask smoke
+
+      - name: Prove it before anyone can download it
+        if: runner.os == 'Windows'
+        env:
+          BIOS_SMOKE_PICTURE_OPTIONAL: '1'
+        run: cargo xtask smoke
+
+      - name: Keep the picture of the window
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: window-${{ matrix.name }}
+          path: target/smoke/window.png
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: ${{ matrix.artifact }}
+          # Only what is published: not the bundle, the staging folder or the build.
+          path: |
+            dist/bios-*
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  publish:
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/')
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@v2.22.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          path: in
+          # Not merged: each machine wrote a SHA256SUMS.txt of its own and one would overwrite the
+          # other. Kept apart here, joined deliberately below.
+          merge-multiple: false
+
+      - name: Join the two machines' checksums into one file
+        shell: bash
+        run: |
+          set -eu
+          cat in/release-*/SHA256SUMS.txt | sort -k2 > SHA256SUMS.txt
+          echo "SHA256SUMS.txt:"
+          cat SHA256SUMS.txt
+          # Two lines: a disk image and a zip. One means a platform's build did not arrive.
+          [ "$(wc -l < SHA256SUMS.txt)" -eq 2 ] || { echo "Expected two files in the release." >&2; exit 1; }
+
+      - name: Draft the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -eu
+          version=${GITHUB_REF_NAME#v}
+          gh release create "$GITHUB_REF_NAME" \
+            in/release-macos/bios-*.dmg \
+            in/release-windows/bios-*-portable.zip \
+            SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Bios $version" \
+            --draft \
+            --generate-notes
+          echo "Drafted. Write the notes and publish it; nothing updates itself until you do."

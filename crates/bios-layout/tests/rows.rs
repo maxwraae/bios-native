@@ -385,8 +385,8 @@ fn a_cut_name_and_an_alignment_belong_to_the_duplex_not_to_a_strand() {
     // An enzyme severs both strands, so its name cannot sit on one side without lying; an alignment
     // draws its own duplex. Neither takes a side, and neither buys a strand's laneGap.
     let bare = bare_row_height();
+    // (Native has no alignment caption lane: what a hit is is said in the Find bar, PARITY.md.)
     assert_eq!(row_height_of(Lanes { cutsite_labels: 2, ..Default::default() }), bare + 2.0 * track::CUTSITE_LABELS);
-    assert_eq!(row_height_of(Lanes { probe: 1, ..Default::default() }), bare + track::PROBE);
 }
 
 /// the air above the stack is paid once, whatever is stacked, and not at all by a bare row

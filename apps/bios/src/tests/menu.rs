@@ -42,7 +42,7 @@ fn delete_takes_the_bases_and_find_elsewhere_opens_find_with_them() {
     let (_dir, mut app) = app();
     app.point(71, 82, 0.0);
     app.menu_action(Action::Find, pos2(0.0, 0.0));
-    assert_eq!(app.find.as_ref().map(|(bar, ..)| bar.query.as_str()), Some("CGTACGTAGAC"));
+    assert_eq!(app.ed.find.as_ref().map(|(bar, ..)| bar.query.as_str()), Some("CGTACGTAGAC"));
     app.point(10, 20, 0.0);
     app.menu_action(Action::Delete, pos2(0.0, 0.0));
     assert_eq!(app.opened.as_ref().unwrap().construct.len(), 790);

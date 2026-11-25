@@ -10,7 +10,6 @@ pub mod interactions;
 pub mod overview;
 pub mod pane;
 pub mod pileup;
-pub mod probe;
 pub mod projects;
 pub mod row_features;
 pub mod rows;

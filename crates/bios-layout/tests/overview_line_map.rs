@@ -14,7 +14,13 @@ use support::{Case, all_close, number, path_numbers};
 
 fn line_of(case: &Case) -> LineMap {
     let frame = case.drawn("line", "frame");
-    layout_line(&case.scene, Frame::line(number(&frame[0][0]), number(&frame[0][1])), case.measure())
+    let mut map = layout_line(&case.scene, Frame::line(number(&frame[0][0]), number(&frame[0][1])), case.measure());
+    // Native centres the whole drawing where the web placed it by its lanes (PARITY.md, Max
+    // 2026-11-25). That moves the line up or down as one piece, so it is put back at the web's
+    // height and everything else is held to the recording unchanged.
+    let web_axis = number(&case.drawn("line", "axis")[0][2]);
+    map.shift(web_axis - map.axis_y);
+    map
 }
 
 fn numbers(row: &[String]) -> Vec<f64> {

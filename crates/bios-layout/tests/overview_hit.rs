@@ -11,6 +11,7 @@
 use bios_layout::overview::display::{FeatureRole, MapFeature};
 use bios_layout::overview::hit::{MapHit, line_feature_at, line_gap_at, ring_extend_to, ring_feature_at, ring_gap_at};
 use bios_layout::overview::line_map::{LineMap, layout_line};
+use bios_layout::overview::projection::NAV_RESERVE;
 use bios_layout::overview::projection::Point;
 use bios_layout::overview::ring_map::{RingMap, layout_ring};
 use bios_layout::overview::scene::{Frame, MapScene};
@@ -199,11 +200,14 @@ fn line() -> LineMap {
 #[test]
 fn the_line_is_where_the_arithmetic_above_says() {
     let map = line();
-    assert_eq!((map.left, map.right, map.axis_y, map.thickness), (44.0, 956.0, 167.0, 14.0));
+    assert_eq!((map.left, map.right, map.thickness), (44.0, 956.0, 14.0));
+    // The drawing is centred in the frame: as much room above it as under its numbers.
+    let (top, bottom) = map.extent();
+    assert!((top - (400.0 - NAV_RESERVE - bottom)).abs() < 1e-9, "{top}..{bottom}");
     let bar = &map.bars[0];
     // 100 and 300 thousandths of 912 from the left end, less a pixel of seam at each end.
     assert!((bar.x0 - 136.2).abs() < 1e-9 && (bar.x1 - 316.6).abs() < 1e-9, "{bar:?}");
-    assert_eq!(bar.y, 148.0);
+    assert_eq!(bar.y, map.axis_y - 19.0);
 }
 
 #[test]
@@ -235,18 +239,20 @@ fn a_line_showing_part_of_the_molecule_reads_from_its_window() {
 #[test]
 fn a_point_on_a_bar_is_on_its_feature() {
     let map = line();
-    let at = |x: f64, y: f64| line_feature_at(&map, Point { x, y });
-    assert_eq!(at(200.0, 148.0), Some(MapHit::Shape(0)));
-    assert_eq!(at(200.0, 141.5), Some(MapHit::Shape(0)), "just inside its top edge");
-    assert_eq!(at(200.0, 154.5), Some(MapHit::Shape(0)), "just inside its bottom edge");
-    assert_eq!(at(200.0, 140.5), None);
-    assert_eq!(at(200.0, 155.5), None, "between the bar and the axis");
-    assert_eq!(at(200.0, 167.0), None, "the axis");
-    assert_eq!(at(136.0, 148.0), None, "the seam at its left end");
-    assert_eq!(at(137.0, 148.0), Some(MapHit::Shape(0)));
-    assert_eq!(at(316.0, 148.0), Some(MapHit::Shape(0)));
-    assert_eq!(at(317.0, 148.0), None);
-    assert_eq!(at(450.0, 148.0), None, "the lane between two features");
+    // Measured from the lane's centre line, wherever the frame puts it.
+    let lane = map.bars[0].y;
+    let at = |x: f64, dy: f64| line_feature_at(&map, Point { x, y: lane + dy });
+    assert_eq!(at(200.0, 0.0), Some(MapHit::Shape(0)));
+    assert_eq!(at(200.0, -6.5), Some(MapHit::Shape(0)), "just inside its top edge");
+    assert_eq!(at(200.0, 6.5), Some(MapHit::Shape(0)), "just inside its bottom edge");
+    assert_eq!(at(200.0, -7.5), None);
+    assert_eq!(at(200.0, 7.5), None, "between the bar and the axis");
+    assert_eq!(at(200.0, 19.0), None, "the axis");
+    assert_eq!(at(136.0, 0.0), None, "the seam at its left end");
+    assert_eq!(at(137.0, 0.0), Some(MapHit::Shape(0)));
+    assert_eq!(at(316.0, 0.0), Some(MapHit::Shape(0)));
+    assert_eq!(at(317.0, 0.0), None);
+    assert_eq!(at(450.0, 0.0), None, "the lane between two features");
 }
 
 #[test]
@@ -258,7 +264,7 @@ fn a_flag_over_the_line_is_its_feature() {
     assert_eq!(line_feature_at(&map, Point { x: flag.x + flag.w + 1.0, y: flag.y }), None);
     let (from, to) = flag.leader;
     assert_eq!(line_feature_at(&map, Point { x: (from.x + to.x) / 2.0, y: (from.y + to.y) / 2.0 }), None, "its leader");
-    assert_eq!(line_feature_at(&map, Point { x: 44.0 + 0.912 * 615.0, y: 148.0 }), Some(MapHit::Shape(1)), "its bar");
+    assert_eq!(line_feature_at(&map, Point { x: 44.0 + 0.912 * 615.0, y: map.bars[0].y }), Some(MapHit::Shape(1)), "its bar");
 }
 
 #[test]

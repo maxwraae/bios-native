@@ -13,14 +13,17 @@
 use std::collections::{HashMap, HashSet};
 
 use super::direction::{HEAD_PX, fits_head};
-use super::feature_geometry::{feature_anchor, feature_drawing_pieces};
+use super::feature_geometry::{feature_anchor, feature_drawing_pieces, feature_pieces};
 use super::labels::{
     LabelSpacing, Prioritised, RowItem, bar_available_px, cap_by_priority, fit_label, flag_height, flag_width, group_cuts_by_position, join_enzymes,
     label_spacing, pack_rows,
 };
 use super::presence::{is_mark, seam_span, widen_to_mark};
 use super::projection::{LINE_MARGIN, NAV_RESERVE, Point, line_window, line_x};
-use super::scene::{CUT_FONT, Flag, Frame, MapScene, cut_overhang, flag_font, flag_row, group_thousands, lane_depth, lane_inset, nice_step};
+use super::scene::{
+    CUT_FONT, Flag, Frame, MapScene, PRIMER_HEAD_PX, PRIMER_NAME_GAP, cut_overhang, flag_font, flag_row, group_thousands, lane_depth, lane_inset,
+    nice_step, primer_block, primer_font, primer_inset, primer_step, primer_thickness,
+};
 use super::viewport::{Projection, Viewport, visible_range};
 
 /// Room kept under the axis: the coordinate numbers, then the title block.
@@ -59,6 +62,37 @@ pub struct LineBar {
     pub name: Option<String>,
 }
 
+/// A primer on the line: a slim arrow in the primer track between the axis and the feature lanes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LinePrimer {
+    /// Index into [`MapScene::primers`].
+    pub primer: usize,
+    /// The shaft, after the mark floor and the seam: from `x0` to `x1`, empty when the arrow is all
+    /// head.
+    pub x0: f64,
+    pub x1: f64,
+    /// The lane's centre line.
+    pub y: f64,
+    /// The arrowhead, on the piece that carries the primer's 3' end: a corner of its base, the tip,
+    /// the other corner. The tip is at the 3' end, so the triangle points the way the primer reads.
+    pub head: Option<[Point; 3]>,
+    /// The primer's name beside its 5' end, where there was room for it.
+    pub name: Option<PrimerName>,
+}
+
+/// A primer's name, set beside its 5' end as the sequence rows set it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrimerName {
+    pub text: String,
+    /// The edge of the text that faces the primer, [`PRIMER_NAME_GAP`] off its 5' end.
+    pub x: f64,
+    /// The text runs away from `x` toward smaller x: a forward primer, whose 5' end is its left one.
+    pub to_left: bool,
+    /// Where the letters' middle sits, which is the primer's own lane.
+    pub y: f64,
+    pub font: f64,
+}
+
 /// A cut site on the line: a hash across the strand, and its enzymes' name on a leader when it
 /// won a row. A cut whose name did not fit still gets its hash.
 #[derive(Clone, Debug, PartialEq)]
@@ -91,8 +125,11 @@ pub struct LineMap {
     pub thickness: f64,
     /// Type size of a name written inside a bar.
     pub lane_font: f64,
+    /// How thick a primer's arrow is drawn.
+    pub primer_thickness: f64,
     pub ticks: Vec<LineTick>,
     pub bars: Vec<LineBar>,
+    pub primers: Vec<LinePrimer>,
     pub flags: Vec<Flag>,
     pub cuts: Vec<LineCut>,
 }
@@ -109,6 +146,8 @@ struct Line {
     axis_y: f64,
     l: i64,
     cut_names: bool,
+    /// Room the primer track takes between the axis and the feature lanes. 0 with no primers.
+    primer_block: f64,
 }
 
 impl Line {
@@ -120,13 +159,18 @@ impl Line {
         self.margin_x.max((self.w - self.margin_x).min(v))
     }
 
-    /// Lane 0's centre, just clear of the axis.
+    /// Lane 0's centre, just clear of the axis and of the primer track when there is one.
     fn lane_base(&self) -> f64 {
-        self.axis_y - lane_inset(self.sp)
+        self.axis_y - lane_inset(self.sp) - self.primer_block
     }
 
     fn lane_y(&self, lane: usize) -> f64 {
         self.lane_base() - lane_depth(lane, self.sp)
+    }
+
+    /// A primer lane's centre: lane 0 nearest the axis, the rest stacked up toward the features.
+    fn primer_y(&self, lane: usize) -> f64 {
+        self.axis_y - primer_inset(self.sp) - lane as f64 * primer_step(self.sp)
     }
 
     fn in_window(&self, frac: f64) -> bool {
@@ -140,9 +184,10 @@ pub fn layout_line(scene: &MapScene, frame: Frame, mut measure: impl FnMut(&str,
     let sp = label_spacing(frame.density);
     let vp = Viewport { center: frame.center, width: frame.width, projection: Projection::Line };
     let deepest = (0..scene.features.len()).map(|i| scene.lane(i)).max().unwrap_or(0);
+    let block = primer_block(scene.primer_lanes_used(), sp);
     // The axis is placed so the whole drawing sits centred: a construct three lanes deep should
     // not leave a third of the frame empty above it just because the axis is pinned low.
-    let stack_up = lane_inset(sp) + lane_depth(deepest, sp) + sp.lane_thickness / 2.0;
+    let stack_up = lane_inset(sp) + block + lane_depth(deepest, sp) + sp.lane_thickness / 2.0;
     let stack_down = AXIS_RESERVE;
     let axis_y = match frame.axis_at_bottom {
         // A band in a page: the axis sits just above the floor and the features stand on it.
@@ -158,6 +203,7 @@ pub fn layout_line(scene: &MapScene, frame: Frame, mut measure: impl FnMut(&str,
         axis_y,
         l: scene.length,
         cut_names: frame.cut_names,
+        primer_block: block,
     };
     let mut map = LineMap {
         axis_y,
@@ -165,8 +211,10 @@ pub fn layout_line(scene: &MapScene, frame: Frame, mut measure: impl FnMut(&str,
         right: frame.w - line.margin_x,
         thickness: sp.lane_thickness,
         lane_font: sp.lane_font,
+        primer_thickness: primer_thickness(sp),
         ticks: Vec::new(),
         bars: Vec::new(),
+        primers: Vec::new(),
         flags: Vec::new(),
         cuts: Vec::new(),
     };
@@ -177,7 +225,99 @@ pub fn layout_line(scene: &MapScene, frame: Frame, mut measure: impl FnMut(&str,
     let drawn = line_bars(&line, scene, &mut measure);
     (map.flags, map.cuts) = line_flags(&line, scene, &drawn, deepest, &mut measure);
     map.bars = drawn.bars;
+    map.primers = line_primers(&line, scene, &mut measure);
+    if frame.axis_at_bottom.is_none() {
+        let dy = centring_shift(&map, frame.h);
+        map.shift(dy);
+    }
     map
+}
+
+/// Room under the baseline of a coordinate number, for its descenders.
+const NUMBER_BELOW: f64 = 4.0;
+
+/// Room kept at the top of the map for what the window writes over it: the plasmid's name and
+/// length in the left corner, the viewing controls in the right (`bios_ui::map_tools`). Used only
+/// while the pane has height to spare.
+pub const TITLE_CLEAR: f64 = 50.0;
+
+/// How far to move the line down so that everything drawn, from the highest name to the
+/// coordinate numbers, sits in the middle of the frame. The web centres the lanes and keeps a
+/// fixed room under the axis; native centres what is actually drawn (PARITY.md), so a short
+/// pane shows the map in its middle instead of high up with a gap beneath.
+fn centring_shift(map: &LineMap, h: f64) -> f64 {
+    let (top, bottom) = map.extent();
+    let floor = h - NAV_RESERVE;
+    let tall = bottom - top;
+    if tall >= floor {
+        // Taller than the frame: the axis and numbers stay in view, the highest names give way.
+        return floor - bottom;
+    }
+    let mut dy = (floor - tall) / 2.0 - top;
+    // Clear of the title when there is room below to move into.
+    if top + dy < TITLE_CLEAR {
+        dy = (TITLE_CLEAR - top).min(floor - bottom);
+    }
+    dy
+}
+
+impl LineMap {
+    /// The highest and lowest y anything is drawn at.
+    pub fn extent(&self) -> (f64, f64) {
+        let mut top = self.axis_y;
+        for bar in &self.bars {
+            top = top.min(bar.y - self.thickness / 2.0);
+        }
+        for primer in &self.primers {
+            top = top.min(primer.y - self.primer_thickness / 2.0);
+        }
+        for flag in &self.flags {
+            top = top.min(flag.y - flag.h / 2.0);
+        }
+        for cut in &self.cuts {
+            top = top.min(cut.y0.min(cut.y1));
+            if let Some(label) = &cut.label {
+                top = top.min(label.y - CUT_FONT);
+            }
+        }
+        (top, self.axis_y + NUMBER_DROP + NUMBER_BELOW)
+    }
+
+    /// Moves everything down by `dy`. Also how a test lines the drawing up with the web's, which
+    /// places the whole line at another height (PARITY.md) but otherwise draws it the same.
+    pub fn shift(&mut self, dy: f64) {
+        let down = |p: &mut Point| p.y += dy;
+        self.axis_y += dy;
+        for bar in &mut self.bars {
+            bar.y += dy;
+            if let Some(head) = &mut bar.head {
+                head.iter_mut().for_each(down);
+            }
+        }
+        for primer in &mut self.primers {
+            primer.y += dy;
+            if let Some(head) = &mut primer.head {
+                head.iter_mut().for_each(down);
+            }
+            if let Some(name) = &mut primer.name {
+                name.y += dy;
+            }
+        }
+        for flag in &mut self.flags {
+            flag.y += dy;
+            down(&mut flag.leader.0);
+            down(&mut flag.leader.1);
+        }
+        for cut in &mut self.cuts {
+            cut.y0 += dy;
+            cut.y1 += dy;
+            if let Some(label) = &mut cut.label {
+                label.y += dy;
+                down(&mut label.leader.0);
+                down(&mut label.leader.1);
+            }
+        }
+    }
 }
 
 /// Round steps off the span in view, the same rule the ring's scale uses, with minor ticks at a
@@ -259,6 +399,98 @@ fn line_bars(line: &Line, scene: &MapScene, measure: &mut impl FnMut(&str, f64) 
         }
     }
     drawn
+}
+
+/// One primer arrow before its name has been placed, with what placing a name needs.
+struct LaidPrimer {
+    drawn: LinePrimer,
+    lane: usize,
+    /// The whole drawn span of this piece, which a name may not be written over.
+    span: (f64, f64),
+    /// The x of the primer's 5' edge, on the one piece that carries it and only while it is in view.
+    five: Option<f64>,
+}
+
+/// The primer track, unrolled: one slim arrow per drawn piece, in its own lane between the axis and
+/// the feature lanes.
+///
+/// A primer is drawn as ONE ARROW rather than as a band with a direction mark on it, which is how
+/// the rows draw it (`row_features.rs`, the 3' chevron pushed out of the ribbon): the head is at the
+/// 3' end, where a polymerase runs, so the shape itself says which way the oligo reads. Everything
+/// else follows the feature bars — the mark floor, the seam, the clamp at the window's edges — so an
+/// oligo and a feature over the same bases line up.
+fn line_primer_arrows(line: &Line, scene: &MapScene) -> Vec<LaidPrimer> {
+    let half = primer_thickness(line.sp) / 2.0;
+    let mut out = Vec::new();
+    for (i, p) in scene.primers.iter().enumerate() {
+        let lane = scene.primer_lane(i);
+        let y = line.primer_y(lane);
+        let pieces = feature_pieces(p, line.l);
+        // The head goes on the piece holding the 3' end: the last for a forward oligo, the first
+        // for a reverse one. The name goes on the piece holding the 5' end, which is the other.
+        let (three, five) = if p.forward { (pieces.len().saturating_sub(1), 0) } else { (0, pieces.len().saturating_sub(1)) };
+        for (k, piece) in pieces.iter().enumerate() {
+            let true_x0 = line.clamp_x(line.x(piece.start_frac));
+            let true_x1 = line.clamp_x(line.x(piece.start_frac + piece.width_frac));
+            if true_x1 <= true_x0 {
+                continue;
+            }
+            let (wide0, wide1) = widen_to_mark(true_x0, true_x1);
+            let (x0, x1) = seam_span(wide0, wide1);
+            let head_px = PRIMER_HEAD_PX.min(x1 - x0);
+            let head = (k == three).then(|| {
+                let (base, tip) = if p.forward { (x1 - head_px, x1) } else { (x0 + head_px, x0) };
+                [Point { x: base, y: y - half }, Point { x: tip, y }, Point { x: base, y: y + half }]
+            });
+            let shaft = match (p.forward, head.is_some()) {
+                (_, false) => (x0, x1),
+                (true, true) => (x0, x1 - head_px),
+                (false, true) => (x0 + head_px, x1),
+            };
+            let five_frac = if p.forward { piece.start_frac } else { piece.start_frac + piece.width_frac };
+            let five_x = (k == five && line.in_window(five_frac)).then_some(if p.forward { x0 } else { x1 });
+            out.push(LaidPrimer {
+                drawn: LinePrimer { primer: i, x0: shaft.0, x1: shaft.1, y, head, name: None },
+                lane,
+                span: (x0, x1),
+                five: five_x,
+            });
+        }
+    }
+    out
+}
+
+/// A primer's name beside its 5' end, where there is room for it: measured, and written only when
+/// the whole name fits in the frame without crossing another oligo in the same lane or a name
+/// already set there. No flag out in the margin, ever — twenty-two leaders into the column would
+/// bury the features the map is for.
+fn line_primers(line: &Line, scene: &MapScene, measure: &mut impl FnMut(&str, f64) -> f64) -> Vec<LinePrimer> {
+    let mut laid = line_primer_arrows(line, scene);
+    let font = primer_font(line.sp);
+    let mut taken: Vec<(usize, f64, f64)> = laid.iter().map(|l| (l.lane, l.span.0, l.span.1)).collect();
+    for item in &mut laid {
+        let (Some(edge), Some(p)) = (item.five, scene.primers.get(item.drawn.primer)) else { continue };
+        if p.name.is_empty() {
+            continue;
+        }
+        let w = measure(&p.name, font);
+        if w <= 0.0 {
+            continue;
+        }
+        // Away from the oligo: a forward primer reads rightward, so its name sits off its left end.
+        let to_left = p.forward;
+        let x = if to_left { edge - PRIMER_NAME_GAP } else { edge + PRIMER_NAME_GAP };
+        let (lo, hi) = if to_left { (x - w, x) } else { (x, x + w) };
+        if lo < line.margin_x || hi > line.w - line.margin_x {
+            continue;
+        }
+        if taken.iter().any(|&(lane, a, b)| lane == item.lane && a < hi && lo < b) {
+            continue;
+        }
+        taken.push((item.lane, lo, hi));
+        item.drawn.name = Some(PrimerName { text: p.name.clone(), x, to_left, y: item.drawn.y, font });
+    }
+    laid.into_iter().map(|l| l.drawn).collect()
 }
 
 /// A name competing for a row above the lanes: a feature's flag or an enzyme's name.

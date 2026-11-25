@@ -15,16 +15,16 @@ use bios_core::{Construct, Feature, Strand};
 use bios_layout::overview::arc_text::arc_glyphs;
 use bios_layout::overview::bands::{BandLayout, DIM_AT, OuterBand, SeamMark, layout_band, overlap_fraction};
 use bios_layout::overview::chords::{Pt as ChordPt, arrow_head_points as arrow, chord_apex, mid_frac};
-use bios_layout::overview::display::{FileFeature, MapFeature, display_features};
+use bios_layout::overview::display::{FileFeature, MapFeature, display_features, display_primers};
 use bios_layout::overview::flywheel::{self, Flywheel, SpinPhase, Tone};
 use bios_layout::overview::hit::{MapHit, gap_of, line_feature_at, line_gap_at, ring_feature_at, ring_gap_at};
-use bios_layout::overview::line_map::{LineBar, LineCut, LineMap, NUMBER_DROP, layout_line};
+use bios_layout::overview::line_map::{LineBar, LineCut, LineMap, LinePrimer, NUMBER_DROP, layout_line};
 use bios_layout::overview::morph_map::{MorphMap, along_path, layout_morph};
 use bios_layout::overview::navigate::{self, ZoomTarget};
 use bios_layout::overview::projection::{
     LINE_MARGIN, Point, RingGeom, TAU, line_window, line_x, point_to_frac_line, point_to_frac_ring, ring_point, straightness,
 };
-use bios_layout::overview::ring_map::{Anchor, ArcLabel, RingArc, RingCut, RingMap, layout_ring};
+use bios_layout::overview::ring_map::{Anchor, ArcLabel, RingArc, RingCut, RingMap, RingPrimer, layout_ring};
 use bios_layout::overview::scene::{CUT_FONT, Flag, Frame, MapScene};
 use bios_layout::overview::selection::ring_step;
 use bios_layout::overview::viewport::{MIN_WIDTH, Piece, Projection, Viewport, pan_by, split_span};
@@ -168,6 +168,9 @@ impl Plan {
     ) -> Plan {
         let scene =
             scene_with(c, layers.splice_scan).with_cuts(cuts.iter().map(|s| (i64::try_from(s.top_cut).unwrap_or(0), s.enzyme.to_string())).collect());
+        // The Primers layer: with it off the scene carries none, and the map is laid out exactly as
+        // it was before the primer track existed.
+        let scene = if layers.primers { scene.with_primers(&primers_of(c)) } else { scene };
         let measure = |text: &str, font_px: f64| f64::from(advance(painter, text, font_px as f32));
         let (w, h) = (f64::from(rect.width()), f64::from(rect.height()));
         let vp = view.vp;
@@ -258,8 +261,22 @@ pub fn draw(painter: &Painter, rect: Rect, c: &Construct) {
 /// drawing, which is what a short band in a list needs: centred, a construct several lanes deep
 /// puts its features above the top of the band and they are simply not drawn.
 pub fn draw_view(painter: &Painter, rect: Rect, c: &Construct, view: MapView, axis_at_bottom: Option<f64>) {
+    let _ = draw_with(painter, rect, c, view, &[], axis_at_bottom);
+}
+
+/// [`draw_view`] with `cuts` drawn on it: a hash across the strand each, named where a row is
+/// free, as the window draws them.
+pub fn draw_with(painter: &Painter, rect: Rect, c: &Construct, view: MapView, cuts: &[CutSite], axis_at_bottom: Option<f64>) -> Drawn {
     let overlay = Overlay::default();
-    let plan = Plan::new(painter, rect, c, view, &[], Layers::default(), &overlay, axis_at_bottom);
+    let plan = Plan::new(painter, rect, c, view, cuts, Layers::default(), &overlay, axis_at_bottom);
+    // A line is as tall as what it drew; a ring and an unrolling one are drawn to their frame.
+    let tall = match &plan.laid {
+        Laid::Line(line) => {
+            let (top, bottom) = line.extent();
+            Some(bottom - top)
+        }
+        Laid::Ring(_) | Laid::Morph(_) => None,
+    };
     Paint {
         painter,
         origin: rect.min.to_vec2(),
@@ -270,6 +287,15 @@ pub fn draw_view(painter: &Painter, rect: Rect, c: &Construct, view: MapView, ax
         overlay,
     }
     .map(&plan.laid);
+    Drawn { tall }
+}
+
+/// What `draw_with` turned out to draw.
+pub struct Drawn {
+    /// How tall the drawing itself is, where that is less than the frame it was given: a line
+    /// map of a short stretch is a band, not a screenful, so a picture of it need not be one.
+    /// `None` for a ring, which is drawn to fill whatever frame it has.
+    pub tall: Option<f64>,
 }
 
 /// Draws the whole map with where the person is on it, and says what the pointer did there.
@@ -640,6 +666,15 @@ pub fn scene_with(c: &Construct, show_splice_scan: bool) -> MapScene {
     MapScene::new(&shown, bp(c.len()), c.circular)
 }
 
+/// The construct's primers as the map draws them, for [`MapScene::with_primers`]: its `primer_bind`
+/// features, parts aside, as the rail reads them (`navigator::primers_of`).
+pub fn primers_of(c: &Construct) -> Vec<MapFeature> {
+    let file: Vec<FileFeature<'_>> = c.features.iter().map(file_feature).collect();
+    let mut shown = display_primers(&file);
+    shown.retain(|f| c.features.get(f.source).is_none_or(|g| !bios_core::parts::is_part(g)));
+    shown
+}
+
 fn bp(n: usize) -> i64 {
     i64::try_from(n).unwrap_or(i64::MAX)
 }
@@ -719,6 +754,24 @@ impl Wires {
 
 /// How strong a greyed-back feature is drawn (`opacity` 0.12 for a `dim` tone).
 const DIM: f32 = 0.12;
+
+/// How far a primer's arrow is tinted toward the paper, and its head, which carries the direction
+/// and so is left stronger.
+///
+/// A map with twenty-two primers on it has to still read as a map of its FEATURES, so the oligo
+/// track is light on purpose: thin, tinted, no chrome, and never a flag out in the margin. The
+/// violet is the rows' own primer colour (`theme::PRIMER_EDGE`), which is what ties the two views
+/// together.
+const PRIMER_TINT: f32 = 0.45;
+const PRIMER_HEAD_TINT: f32 = 0.72;
+
+fn primer_fill() -> Color32 {
+    theme::mix(theme::PRIMER_EDGE, theme::CELL, PRIMER_TINT)
+}
+
+fn primer_head_fill() -> Color32 {
+    theme::mix(theme::PRIMER_EDGE, theme::CELL, PRIMER_HEAD_TINT)
+}
 
 struct Paint<'a> {
     painter: &'a Painter,
@@ -1082,6 +1135,9 @@ impl Paint<'_> {
         for arc in &map.arcs {
             self.arc(map, arc);
         }
+        for primer in &map.primers {
+            self.ring_primer(map, primer);
+        }
         self.ring_bands(map);
         for cut in &map.cuts {
             self.ring_cut(cut);
@@ -1089,6 +1145,9 @@ impl Paint<'_> {
         self.ring_caret(map);
         for label in &map.arc_labels {
             self.arc_label(map, label);
+        }
+        for label in &map.primer_labels {
+            self.arc_text(map, label, theme::PRIMER_INK);
         }
         for flag in &map.flags {
             self.flag(flag, 0.5);
@@ -1159,9 +1218,24 @@ impl Paint<'_> {
         }
     }
 
+    /// A primer: the shaft as a thin arc on its own lane, the head at its 3' end.
+    fn ring_primer(&self, map: &RingMap, primer: &RingPrimer) {
+        if primer.width_frac > 0.0 {
+            let points = self.sweep(map, primer.start_frac, primer.width_frac, primer.radius);
+            self.painter.add(Shape::line(points, Stroke::new(map.primer_thickness as f32, primer_fill())));
+        }
+        if let Some(head) = primer.head {
+            self.painter.add(Shape::convex_polygon(head.iter().map(|p| self.at(*p)).collect(), primer_head_fill(), Stroke::NONE));
+        }
+    }
+
     /// A name written along its own arc, letter by letter.
     fn arc_label(&self, map: &RingMap, label: &ArcLabel) {
-        let (_, ink) = self.colors(label.feature);
+        self.arc_text(map, label, self.colors(label.feature).1);
+    }
+
+    /// The same, in a colour the caller names: a primer's name is not a feature's.
+    fn arc_text(&self, map: &RingMap, label: &ArcLabel, ink: Color32) {
         let font = name_font(label.font as f32);
         let whole = self.painter.layout_no_wrap(label.text.clone(), font.clone(), ink);
         let Some(row) = whole.rows.first() else { return };
@@ -1204,6 +1278,9 @@ impl Paint<'_> {
         self.brackets(map);
         for bar in &map.bars {
             self.bar(map, bar);
+        }
+        for primer in &map.primers {
+            self.line_primer(map, primer);
         }
         self.line_bands(map);
         for cut in &map.cuts {
@@ -1468,6 +1545,23 @@ impl Paint<'_> {
         }
         if let Some(name) = &bar.name {
             self.text_middle(left + (right - left) / 2.0, Set::Middle, name, name_font(map.lane_font as f32), ink);
+        }
+    }
+
+    /// A primer: the shaft as a slim bar in its own lane, the head at its 3' end, and its name
+    /// beside its 5' end where the layout found room.
+    fn line_primer(&self, map: &LineMap, primer: &LinePrimer) {
+        let half = vec2(0.0, map.primer_thickness as f32 / 2.0);
+        if primer.x1 > primer.x0 {
+            let (left, right) = (self.at(Point { x: primer.x0, y: primer.y }), self.at(Point { x: primer.x1, y: primer.y }));
+            self.painter.rect_filled(Rect::from_min_max(left - half, right + half), CornerRadius::same(1), primer_fill());
+        }
+        if let Some(head) = primer.head {
+            self.painter.add(Shape::convex_polygon(head.iter().map(|p| self.at(*p)).collect(), primer_head_fill(), Stroke::NONE));
+        }
+        if let Some(name) = &primer.name {
+            let set = if name.to_left { Set::End } else { Set::Start };
+            self.text_middle(self.at(Point { x: name.x, y: name.y }), set, &name.text, name_font(name.font as f32), theme::PRIMER_INK);
         }
     }
 }

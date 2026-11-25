@@ -4,6 +4,7 @@
 mod ask;
 mod card;
 mod edit;
+mod editors;
 mod find;
 mod intro;
 mod key;

@@ -37,11 +37,11 @@ fn letters_that_are_bases_are_typed_and_the_rest_are_not() {
     let before = start(&app);
     frame(&mut app, &ctx, vec![Event::Text("g".into()), Event::Text("x".into()), Event::Text("N".into()), Event::Text("7".into())]);
     assert_eq!(start(&app), format!("GN{}", &before[..10]));
-    assert_eq!(app.cursor.caret, Some(2));
+    assert_eq!(app.ed.cursor.caret, Some(2));
     frame(&mut app, &ctx, vec![key(Key::Backspace, Modifiers::NONE)]);
     frame(&mut app, &ctx, vec![key(Key::ArrowLeft, Modifiers::NONE), key(Key::Delete, Modifiers::NONE)]);
     assert_eq!(start(&app), before);
-    assert_eq!(app.cursor.caret, Some(0));
+    assert_eq!(app.ed.cursor.caret, Some(0));
 }
 
 #[test]
@@ -49,13 +49,13 @@ fn arrows_move_the_caret_shift_selects_and_select_all_takes_everything() {
     let (_dir, mut app) = app();
     let ctx = egui::Context::default();
     frame(&mut app, &ctx, vec![key(Key::ArrowRight, Modifiers::NONE), key(Key::ArrowRight, Modifiers::NONE)]);
-    assert_eq!(app.cursor.caret, Some(2));
+    assert_eq!(app.ed.cursor.caret, Some(2));
     frame(&mut app, &ctx, vec![key(Key::ArrowRight, Modifiers::SHIFT), key(Key::ArrowRight, Modifiers::SHIFT)]);
-    assert_eq!((app.cursor.caret, app.cursor.selection), (None, Some((2, 3))));
+    assert_eq!((app.ed.cursor.caret, app.ed.cursor.selection), (None, Some((2, 3))));
     // The row it moved to is asked into view.
-    assert_eq!(app.cursor.reveal, Some(4));
+    assert_eq!(app.ed.cursor.reveal, Some(4));
     frame(&mut app, &ctx, vec![key(Key::A, Modifiers::COMMAND)]);
-    assert_eq!(app.cursor.selection, Some((0, 799)));
+    assert_eq!(app.ed.cursor.selection, Some((0, 799)));
     // Typing over everything replaces it; deleting everything is refused in a sentence.
     frame(&mut app, &ctx, vec![key(Key::Backspace, Modifiers::NONE)]);
     assert_eq!(app.problem.as_deref(), Some("A plasmid cannot be left with no bases. To get rid of it, delete the plasmid."));
@@ -76,7 +76,7 @@ fn paste_puts_dna_in_and_refuses_prose_and_cut_takes_the_selection_out() {
     app.point(0, 8, 0.0);
     frame(&mut app, &ctx, vec![Event::Cut]);
     assert_eq!(start(&app), before);
-    assert_eq!((app.cursor.caret, app.cursor.selection), (Some(0), None));
+    assert_eq!((app.ed.cursor.caret, app.ed.cursor.selection), (Some(0), None));
 }
 
 #[test]
@@ -116,9 +116,9 @@ fn keys_meant_for_the_naming_sheet_do_not_reach_the_bases() {
     let ctx = egui::Context::default();
     app.point(0, 20, 0.0);
     app.command(crate::menus::NEW_FEATURE);
-    assert!(app.ask.is_some());
+    assert!(app.ed.ask.is_some());
     let before = start(&app);
     frame(&mut app, &ctx, vec![Event::Text("g".into()), key(Key::Backspace, Modifiers::NONE)]);
     assert_eq!(start(&app), before);
-    assert_eq!(app.cursor.selection, Some((0, 19)));
+    assert_eq!(app.ed.cursor.selection, Some((0, 19)));
 }

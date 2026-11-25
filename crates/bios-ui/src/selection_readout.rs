@@ -176,12 +176,16 @@ pub enum Outcome {
 /// Where the pill goes (`SelectionReadout.tsx` `place`): above the highlight's top piece, below
 /// it when there is no room, kept off the toolbar band and inside the pane. Without a highlight
 /// on screen, bottom-centre of the pane. Gives the pill's top-left.
-pub fn placement(highlight: Option<Rect>, size: egui::Vec2, pane: Rect) -> Pos2 {
+///
+/// Where native differs (PARITY.md): given `air`, the middle of the clear space between the
+/// highlight's row and the row above, the pill stands centred in it rather than 8 px above the
+/// highlight, so it sits between rows instead of on the lanes stacked over the bases.
+pub fn placement(highlight: Option<Rect>, air: Option<f32>, size: egui::Vec2, pane: Rect) -> Pos2 {
     let Some(top) = highlight else {
         return pos2(pane.center().x - size.x / 2.0, pane.bottom() - 16.0 - size.y);
     };
     let gap = 8.0;
-    let mut y = top.top() - pane.top() - size.y - gap;
+    let mut y = air.map_or(top.top() - size.y - gap, |air| air - size.y / 2.0) - pane.top();
     if y < 4.0 {
         y = top.bottom() - pane.top() + gap;
     }
@@ -229,6 +233,7 @@ pub fn show(
     ui: &mut Ui,
     selected: &Selected,
     highlight: Option<Rect>,
+    air: Option<f32>,
     pane: Rect,
     asking: Option<&mut PrimerAsk>,
     feature_verb: bool,
@@ -260,7 +265,7 @@ pub fn show(
     let size = vec2(inner + 2.0 * PAD, HEIGHT);
     // `animation: sr-in 0.14s ease-out`: it fades in, rising 5 px, each time it appears.
     let shown = primitives::entrance(ui.ctx(), Id::unique("selection-readout"), 0.14);
-    let rect = Rect::from_min_size(placement(highlight, size, pane) + vec2(0.0, 5.0 * (1.0 - shown)), size);
+    let rect = Rect::from_min_size(placement(highlight, air, size, pane) + vec2(0.0, 5.0 * (1.0 - shown)), size);
     let mut outcome = None;
     // Above the rows, so a press on a verb or in the name is the pill's and not a caret.
     let layer = egui::LayerId::new(egui::Order::Foreground, Id::unique("selection-readout"));
@@ -455,9 +460,21 @@ mod tests {
         let pane = Rect::from_min_max(pos2(266.0, 38.0), pos2(1440.0, 900.0));
         let size = vec2(378.0, 34.0);
         let high = Rect::from_min_max(pos2(336.0, 600.0), pos2(500.0, 640.0));
-        assert_eq!(placement(Some(high), size, pane), pos2(272.0, 558.0), "kept inside the pane's left edge");
+        assert_eq!(placement(Some(high), None, size, pane), pos2(272.0, 558.0), "kept inside the pane's left edge");
         let top = Rect::from_min_max(pos2(700.0, 40.0), pos2(800.0, 80.0));
-        assert_eq!(placement(Some(top), size, pane).y, 88.0);
-        assert_eq!(placement(None, size, pane), pos2(664.0, 850.0));
+        assert_eq!(placement(Some(top), None, size, pane).y, 88.0);
+        assert_eq!(placement(None, None, size, pane), pos2(664.0, 850.0));
+    }
+
+    #[test]
+    fn given_the_air_between_rows_the_pill_stands_centred_in_it() {
+        let pane = Rect::from_min_max(pos2(266.0, 38.0), pos2(1440.0, 900.0));
+        let size = vec2(378.0, 34.0);
+        let high = Rect::from_min_max(pos2(700.0, 600.0), pos2(900.0, 640.0));
+        // The row above ends, and its air is centred at 560: well clear of the highlight at 600.
+        assert_eq!(placement(Some(high), Some(560.0), size, pane).y, 543.0);
+        // Air too near the top of the pane: below the highlight, as before.
+        let top = Rect::from_min_max(pos2(700.0, 40.0), pos2(800.0, 80.0));
+        assert_eq!(placement(Some(top), Some(30.0), size, pane).y, 88.0);
     }
 }

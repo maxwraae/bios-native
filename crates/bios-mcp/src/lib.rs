@@ -26,12 +26,12 @@ Bios is a workspace for designing DNA. You are working inside one project: a set
 const HOME: &str = "\
 Bios is a workspace for designing DNA. You are working in a folder of Bios projects; each project is a set of plasmids, in folders, each with its full history.
 
-Start with list_projects. Every other tool takes `project`: the project's folder name as list_projects shows it (its name works too), or any folder's absolute path. A plasmid can also be written as \"Project/path\" with no `project`. Tools that take a second plasmid (from_plasmid, from) look for it in the same project. Make a new project with create_project only when the person asks for one.";
+Start with list_projects. Every other tool takes `project`: the project's folder name as list_projects shows it (its name works too), or any folder's absolute path. A plasmid can also be written as \"Project/path\" with no `project`. Tools that take a second plasmid (from_plasmid, from) look for it in the same project. Bios works on folders where they are: when the person's files are in a folder (iCloud, Google Drive, OneDrive, anywhere), open_project that folder and work there; never make a new project and import copies of them. Make a new project with create_project only when the person asks for one, in the folder they want it in. To put a project or plasmid in front of the person in the Bios window (\"show me\", \"open it\"), call show_in_bios.";
 
 const RECENT: &str = "\
 Bios is a workspace for designing DNA. A project is any folder on this computer: its plasmids are the sequence files in it (GenBank, FASTA, SnapGene, EMBL), in subfolders, each with its full history once Bios has changed it. Bios keeps a list of the folders the person has opened, as a code editor does.
 
-Start with list_projects: the folders opened in Bios, with each one's path. Every other tool takes `project`: a folder's name as list_projects shows it, or any folder's absolute path (that folder is opened and joins the list, as open_project does). Opening or reading a folder writes nothing into it; the first change makes it a Bios project (a bios.json and a hidden .bios folder beside its files). A plasmid can also be written as \"Project/path\" with no `project`. Tools that take a second plasmid (from_plasmid, from) look for it in the same project. Make a new project with create_project only when the person asks for one.";
+Start with list_projects: the folders opened in Bios, with each one's path. Every other tool takes `project`: a folder's name as list_projects shows it, or any folder's absolute path (that folder is opened and joins the list, as open_project does). Opening or reading a folder writes nothing into it; the first change makes it a Bios project (a bios.json and a hidden .bios folder beside its files). A plasmid can also be written as \"Project/path\" with no `project`. Tools that take a second plasmid (from_plasmid, from) look for it in the same project. Bios works on folders where they are: when the person's files are in a folder (iCloud, Google Drive, OneDrive, anywhere), open_project that folder and work there; never make a new project and import copies of them. Make a new project with create_project only when the person asks for one, in the folder they want it in. To put a project or plasmid in front of the person in the Bios window (\"show me\", \"open it\"), call show_in_bios.";
 
 const DEFAULT_PROJECT: &str = "\
 When you leave `project` out and the plasmid is not written as \"Project/path\", the tool works in the project open in the Bios window (what_is_open names it). Pass `project` to work anywhere else; it always wins.";
@@ -121,6 +121,15 @@ fn agent() -> Who {
 /// A project folder's own name: what list_projects calls it and `project` takes.
 fn label(root: &Path) -> String {
     root.file_name().map_or_else(|| root.display().to_string(), |f| f.to_string_lossy().into_owned())
+}
+
+/// A path written from the person's home folder ("~/Lab") as the absolute path it means.
+fn expand_home(path: &str) -> String {
+    let home = std::env::var("HOME").ok().filter(|h| !h.is_empty());
+    match (path.strip_prefix('~'), home) {
+        (Some(rest), Some(home)) if rest.is_empty() || rest.starts_with('/') => format!("{home}{rest}"),
+        _ => path.to_string(),
+    }
 }
 
 fn text_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
@@ -237,12 +246,22 @@ impl Many {
 
     fn create_project(&mut self, args: &Value) -> Result<Value, String> {
         let name = text_arg(args, "name").unwrap_or("");
-        let parent = match (text_arg(args, "path"), &self.source) {
+        let path = text_arg(args, "path").map(expand_home);
+        let parent = match (path.as_deref(), &self.source) {
             (Some(path), _) if Path::new(path).is_absolute() => PathBuf::from(path),
             (Some(path), _) => return Err(format!("create_project's `path` must be an absolute folder path; {path} is not one")),
             (None, Source::Folder(root)) => root.clone(),
             (None, Source::Recent(_)) => recents::default_location().ok_or("say where to make it with `path`")?,
         };
+        // A folder that is already there is the person's: open it where it is, as Bios opens any.
+        if let Ok(folder) = bios_project::home::folder_name(name)
+            && parent.join(folder).is_dir()
+        {
+            let project = self.open_path(&parent.join(folder))?;
+            let root = project.root().to_path_buf();
+            return Ok(json!({ "project": label(&root), "name": project.name(), "path": root.display().to_string(), "opened_existing": true,
+                "note": "this folder was already there, so it is opened as it is; nothing was made or copied" }));
+        }
         let project = bios_project::home::create_in(&parent, name).map_err(|e| e.to_string())?;
         let mut root = project.root().to_path_buf();
         if let Source::Recent(recents) = &mut self.source {
@@ -429,18 +448,18 @@ fn home_tools() -> Vec<Value> {
         tool(
             "open_project",
             "Open project",
-            "Open any folder on this computer as a project, by its absolute path, and add it to the list of folders opened in Bios. A folder that is not a Bios project yet is read from its sequence files and nothing is written into it until something is changed.",
+            "Open any folder on this computer as a project, by its absolute path, and add it to the list of folders opened in Bios. This is how to work in a folder the person already has, wherever it is (iCloud, Google Drive, OneDrive, Dropbox, a shared drive): Bios works on the files where they are and copies nothing, and the person sees the same folder in the Bios window. A folder that is not a Bios project yet is read from its sequence files and nothing is written into it until something is changed.",
             object(json!({ "path": { "type": "string", "description": "The folder's absolute path." } }), &["path"]),
             craft_mcp_server::Effect::Edits,
         ),
         tool(
             "create_project",
             "Create project",
-            "Make a new, empty project (only when the person asks for one): a folder named `name` inside `path`, or inside the usual place for new projects when `path` is left out.",
+            "Make a new, empty project folder (only when the person asks for one): a folder named `name` inside the folder `path`, which can be anywhere on this computer and is made if it does not exist yet. When the person's files already sit in a folder, do not make a project and import copies of them: open that folder with open_project. If `path`/`name` already exists it is opened as it is, nothing copied. Put a new folder where the person says. When they have not said and their other projects sit in different places, ask where it should go; left out, it goes in the usual place for new projects (~/Documents/Bios projects when that exists). The answer gives the new project's full path.",
             object(
                 json!({
                     "name": { "type": "string", "description": "The project's name, also used as its folder name." },
-                    "path": { "type": "string", "description": "The absolute path of the folder to make it in. Optional." }
+                    "path": { "type": "string", "description": "The folder to make it in, as an absolute path or starting with ~ for the home folder (\"~/Desktop/Lab\"). The project becomes <path>/<name>. Optional." }
                 }),
                 &["name"],
             ),
@@ -476,14 +495,44 @@ fn home_tools() -> Vec<Value> {
     ]
 }
 
+/// A picture larger than this is left on disk to be opened, not carried in the answer. Big
+/// enough for any picture `draw_plasmid` draws by default; small enough that one call cannot
+/// flood the conversation it goes back to.
+const MOST_INLINE_BYTES: u64 = 3 * 1024 * 1024;
+
+/// The PNG a command drew, as the connection should carry it back, if it drew one.
+///
+/// An agent reaches Bios over a pipe and may have no way to open a file on this computer, so a
+/// picture rides home inside the answer itself: MCP carries an image beside the text, and the
+/// agent sees it the way a person sees it on screen. The path is still in the text, for an agent
+/// that would rather open the file or hand it to someone.
+fn drawn_image(result: &Value) -> Option<Value> {
+    let path = result.get("path")?.as_str()?;
+    if result.get("format")?.as_str()? != "png" || !path.to_lowercase().ends_with(".png") {
+        return None;
+    }
+    if std::fs::metadata(path).ok()?.len() > MOST_INLINE_BYTES {
+        return None;
+    }
+    let bytes = std::fs::read(path).ok()?;
+    let data = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, bytes);
+    Some(json!({ "type": "image", "data": data, "mimeType": "image/png" }))
+}
+
 fn reply(outcome: Result<Value, String>) -> Value {
     match outcome {
         Ok(mut result) => {
             // A GenBank file is easier to read as text than as one escaped JSON string.
             let genbank = result.as_object_mut().and_then(|map| map.remove("genbank")).and_then(|v| v.as_str().map(str::to_owned));
+            let image = drawn_image(&result);
             let mut reply = text_result(serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()), false);
-            if let (Some(text), Some(content)) = (genbank, reply.get_mut("content").and_then(Value::as_array_mut)) {
-                content.push(json!({ "type": "text", "text": text }));
+            if let Some(content) = reply.get_mut("content").and_then(Value::as_array_mut) {
+                if let Some(text) = genbank {
+                    content.push(json!({ "type": "text", "text": text }));
+                }
+                if let Some(image) = image {
+                    content.push(image);
+                }
             }
             reply
         }
@@ -524,4 +573,36 @@ impl Tools for BiosTools {
 pub fn serve(tools: BiosTools, input: impl BufRead, output: impl Write) -> std::io::Result<()> {
     let info = Info { name: "bios", title: "Bios", version: env!("CARGO_PKG_VERSION"), max_line: MAX_LINE };
     Server::new(info, tools).serve(input, output)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The smallest possible PNG: the 8-byte signature is all `drawn_image` reads of it.
+    fn png(dir: &std::path::Path, name: &str, bytes: usize) -> String {
+        let path = dir.join(name);
+        std::fs::write(&path, vec![0x89u8; bytes]).unwrap();
+        path.display().to_string()
+    }
+
+    #[test]
+    fn a_png_rides_home_in_the_answer_and_an_oversized_one_does_not() {
+        let dir = tempfile::tempdir().unwrap();
+        let small = png(dir.path(), "map.png", 12);
+        let drawn = drawn_image(&json!({ "path": small, "format": "png" })).expect("a picture goes back with the answer");
+        assert_eq!(drawn["type"], "image");
+        assert_eq!(drawn["mimeType"], "image/png");
+        // Twelve 0x89 bytes, base64'd.
+        assert_eq!(drawn["data"], "iYmJiYmJiYmJiYmJ");
+
+        // Too big to carry: the answer still names the file, so it can be opened instead.
+        let huge = png(dir.path(), "huge.png", usize::try_from(MOST_INLINE_BYTES).unwrap() + 1);
+        assert_eq!(drawn_image(&json!({ "path": huge, "format": "png" })), None);
+
+        // Not a picture, or not one an agent can look at.
+        assert_eq!(drawn_image(&json!({ "path": small, "format": "svg" })), None);
+        assert_eq!(drawn_image(&json!({ "path": dir.path().join("gone.png").display().to_string(), "format": "png" })), None);
+        assert_eq!(drawn_image(&json!({ "plasmid": "pUC19" })), None);
+    }
 }

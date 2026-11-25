@@ -20,6 +20,7 @@ pub mod mapping;
 #[cfg(not(feature = "mapper"))]
 #[path = "no_mapping.rs"]
 pub mod mapping;
+pub mod picture;
 mod refs;
 pub mod update;
 pub mod verify;
@@ -152,6 +153,8 @@ pub struct Session {
     control: std::sync::Mutex<verify::Control>,
     /// What `check_for_update` and `update_bios` ask, in place of the one the program set up.
     updater: Option<std::sync::Arc<dyn update::Updater>>,
+    /// What `draw_plasmid` draws with, in place of the one the program set up.
+    painter: Option<std::sync::Arc<dyn picture::Painter>>,
     /// Where the window writes down what it shows (`what_is_open`), in place of the one in Bios's
     /// settings folder.
     window_file: Option<std::path::PathBuf>,
@@ -208,6 +211,7 @@ impl Session {
             mapper: verify::default_mapper(),
             control: std::sync::Mutex::new(verify::Control::default()),
             updater: None,
+            painter: None,
             window_file: None,
         }
     }
@@ -225,6 +229,17 @@ impl Session {
     pub fn with_updater(mut self, updater: std::sync::Arc<dyn update::Updater>) -> Self {
         self.updater = Some(updater);
         self
+    }
+
+    /// The same session, drawing with `painter` instead of the one set up for the whole program
+    /// ([`picture::set_painter`]).
+    pub fn with_painter(mut self, painter: std::sync::Arc<dyn picture::Painter>) -> Self {
+        self.painter = Some(painter);
+        self
+    }
+
+    pub(crate) fn painter(&self) -> Option<std::sync::Arc<dyn picture::Painter>> {
+        self.painter.clone().or_else(picture::installed)
     }
 
     /// The same session, reading what the window shows from `file` instead of the one in Bios's

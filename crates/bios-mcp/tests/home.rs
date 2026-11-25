@@ -171,16 +171,18 @@ fn create_project_makes_a_project_that_can_be_worked_in_at_once() {
 }
 
 #[test]
-fn create_project_refuses_names_that_are_not_folder_names_or_already_there() {
+fn create_project_refuses_names_that_are_not_folder_names_and_opens_one_already_there() {
     let dir = home();
     let replies = calls(
         dir.path(),
-        &[("create_project", json!({"name": "../escape"})), ("create_project", json!({"name": "Lab"})), ("create_project", json!({"name": " "}))],
+        &[("create_project", json!({"name": "../escape"})), ("create_project", json!({"name": " "})), ("create_project", json!({"name": "Lab"}))],
     );
-    for r in &replies {
-        error(r);
-    }
+    error(&replies[0]);
+    error(&replies[1]);
     assert!(!dir.path().parent().unwrap().join("escape").exists());
+    // A folder that is already there is the person's own: opened where it is, nothing made.
+    let lab = body(&replies[2]);
+    assert_eq!((lab["project"].as_str(), lab["opened_existing"].as_bool()), (Some("Lab"), Some(true)));
 }
 
 #[test]

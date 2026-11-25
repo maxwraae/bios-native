@@ -1,6 +1,7 @@
 //! The commands, grouped the way they are listed.
 
 mod analysis;
+mod assembly;
 mod batch;
 mod browse;
 mod build;
@@ -15,11 +16,13 @@ mod golden_gate;
 mod history;
 mod oligos;
 mod pcr;
+mod picture;
 mod primers;
 mod quantities;
 mod read;
 mod sequence;
 mod share;
+mod show;
 mod structure;
 mod update;
 mod verify;
@@ -32,9 +35,11 @@ use crate::{CommandSpec, Kind, Param, refs};
 
 pub static ALL: &[&[CommandSpec]] = &[
     window::COMMANDS,
+    show::COMMANDS,
     browse::COMMANDS,
     files::COMMANDS,
     read::COMMANDS,
+    picture::COMMANDS,
     analysis::COMMANDS,
     compare::COMMANDS,
     quantities::COMMANDS,
@@ -44,6 +49,7 @@ pub static ALL: &[&[CommandSpec]] = &[
     features::COMMANDS,
     primers::COMMANDS,
     design::COMMANDS,
+    assembly::COMMANDS,
     pcr::COMMANDS,
     gibson::COMMANDS,
     digest::COMMANDS,

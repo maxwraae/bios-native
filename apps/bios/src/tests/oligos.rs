@@ -22,19 +22,19 @@ fn a_binder_is_held_against_the_plasmid_on_screen_and_never_reaches_the_file() {
     let token = app.opened.as_ref().unwrap().token.clone();
     app.add_binder_from_selection(159, 180);
     let c = app.opened.as_ref().unwrap().construct.clone();
-    app.oligos.refresh(Some(&id), &c, app.revision);
-    let sites = app.oligos.sites().to_vec();
+    app.ed.oligos.refresh(Some(&id), &c, app.revision);
+    let sites = app.ed.oligos.sites().to_vec();
     assert_eq!(sites.len(), 1);
     assert_eq!((sites[0].site.start, sites[0].site.end, sites[0].site.forward, sites[0].on_target), (159, 180, false, true));
     assert_eq!(app.opened.as_ref().unwrap().token, token, "holding a binder writes nothing");
-    let (index, all) = app.oligos.binder_at(&id, 0).unwrap();
+    let (index, all) = app.ed.oligos.binder_at(&id, 0).unwrap();
     assert_eq!((index, all.len()), (0, 1));
     app.remove_binder(0);
-    app.oligos.refresh(Some(&id), &c, app.revision);
-    assert!(app.oligos.sites().is_empty());
+    app.ed.oligos.refresh(Some(&id), &c, app.revision);
+    assert!(app.ed.oligos.sites().is_empty());
     // A selection through the origin makes none, as on the web.
     app.add_binder_from_selection(180, 159);
-    assert_eq!(app.oligos.binders_of(&id).count(), 0);
+    assert_eq!(app.ed.oligos.binders_of(&id).count(), 0);
 }
 
 #[test]

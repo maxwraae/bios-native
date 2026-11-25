@@ -1,0 +1,89 @@
+name: The install works
+
+# The claim this repository makes is that someone hands their agent a link and Bios ends up
+# working, on a Mac or on a PC. This is where that stops being a claim.
+#
+# On a machine that has never seen Bios — no Rust, no repository, nothing — it runs the published
+# one-liner against the public repository, exactly as a person or their agent would, and then
+# makes the installed copy answer a question whose answer is known. It runs when a release is
+# published, so a broken install is found in minutes and the release can be withdrawn, and it can
+# be started by hand at any time to ask "does the install still work today?".
+#
+# Note what is deliberately NOT done here: nothing is built, and nothing is taken from this
+# checkout. Everything comes from raw.githubusercontent.com and from the release, because a thing
+# that works only when built locally is not the thing people download.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mac:
+    name: A Mac that has never seen Bios
+    timeout-minutes: 15
+    runs-on: macos-latest
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@v2.22.4
+        with:
+          egress-policy: audit
+
+      - name: Install it the way the README says
+        run: curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | sh
+
+      # install.sh checks the melting temperature itself and fails if it is wrong, so reaching
+      # here already proves it. This says where it landed and proves Gatekeeper did not mark it.
+      - name: Nothing was quarantined, and it runs
+        run: |
+          set -eu
+          app=/Applications/Bios.app
+          [ -d "$app" ] || app="$HOME/Applications/Bios.app"
+          echo "Installed at $app"
+          if xattr -l "$app" | grep -i quarantine; then
+            echo "The installed app is quarantined, so macOS would stop someone opening it." >&2
+            exit 1
+          fi
+          "$app/Contents/MacOS/bios-cli" run "$TMPDIR" sequence_stats '{"sequence":"ATGGTGAGCAAGGGCGAGGAGCTG"}'
+
+  windows:
+    name: A PC that has never seen Bios
+    timeout-minutes: 15
+    runs-on: windows-latest
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@v2.22.4
+        with:
+          egress-policy: audit
+
+      # Both of them, because they are not the same language where it matters. "PowerShell" on a
+      # PC opens Windows PowerShell 5.1, which quotes arguments to other programs differently and
+      # has no `$IsWindows`; `pwsh` is PowerShell 7, which most people do not have. Testing only
+      # the modern one would leave the version nearly everybody actually runs unproven.
+      - name: Install it the way the README says, in Windows PowerShell 5.1
+        shell: powershell
+        run: irm https://raw.githubusercontent.com/${{ github.repository }}/main/install.ps1 | iex
+
+      - name: And again in PowerShell 7, over the top
+        shell: pwsh
+        run: irm https://raw.githubusercontent.com/${{ github.repository }}/main/install.ps1 | iex
+
+      # The point of the portable zip and of fetching it this way. A file that still carried the
+      # Mark of the Web would meet SmartScreen on a real PC, and this is the only place that can
+      # be caught before someone else meets it.
+      - name: Nothing carries the Mark of the Web, and it runs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dest = Join-Path $env:LOCALAPPDATA 'Programs\bios'
+          Write-Host "Installed at $dest"
+          foreach ($file in Get-ChildItem -Path $dest -Recurse -File) {
+            $mark = Get-Item -Path $file.FullName -Stream 'Zone.Identifier' -ErrorAction SilentlyContinue
+            if ($mark) {
+              throw "$($file.Name) is marked as downloaded, so SmartScreen would stop it."
+            }
+          }
+          & (Join-Path $dest 'bios-cli.exe') run $env:TEMP sequence_stats '{"sequence":"ATGGTGAGCAAGGGCGAGGAGCTG"}'

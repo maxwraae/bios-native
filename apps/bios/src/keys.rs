@@ -26,6 +26,8 @@ pub const ROWS: &[(&str, &str, &str, bool)] = &[
     (menus::NEXT_TAB, "Next construct", "Constructs", false),
     (menus::PREVIOUS_TAB, "Previous construct", "Constructs", false),
     (menus::CLOSE_TAB, "Close this construct", "Constructs", false),
+    (menus::TO_SIDE, "Open this construct to the side", "Constructs", false),
+    (menus::NEW_WINDOW, "Open this construct in a new window", "Constructs", false),
     (menus::QUICK_OPEN, "Go to a construct by name", "Constructs", false),
     (DIGITS, "Go to construct 1\u{2013}9", "Constructs", false),
     (menus::RENAME, "Rename this construct", "Constructs", false),

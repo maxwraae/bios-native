@@ -23,15 +23,15 @@ fn a_projects_tabs_and_the_one_in_front_come_back_and_a_plasmid_gone_since_is_sk
     app.answered(Then::NewProject, Answer::Paths(vec![root.clone()]));
     app.answered(Then::Import, Answer::Paths(vec![fixture("wrap_demo.gb"), fixture("pUC19.gb")]));
     app.new_plasmid("");
-    assert_eq!(app.tabs.len(), 3);
-    let (first, second, third) = (app.tabs[0].clone(), app.tabs[1].clone(), app.tabs[2].clone());
+    assert_eq!(app.ed.tabs.len(), 3);
+    let (first, second, third) = (app.ed.tabs[0].clone(), app.ed.tabs[1].clone(), app.ed.tabs[2].clone());
     app.open_construct(&second);
     app.remember_tabs();
     app.leave_project();
-    assert!(app.tabs.is_empty());
+    assert!(app.ed.tabs.is_empty());
 
     app.open_project(&root);
-    assert_eq!(app.tabs, [first.clone(), second.clone(), third.clone()]);
+    assert_eq!(app.ed.tabs, [first.clone(), second.clone(), third.clone()]);
     assert_eq!(app.opened.as_ref().map(|o| o.id.clone()), Some(second.clone()), "the one in front is in front again");
 
     // The one in front is deleted elsewhere; the others still come back, the last of them in front.
@@ -39,7 +39,7 @@ fn a_projects_tabs_and_the_one_in_front_come_back_and_a_plasmid_gone_since_is_sk
     app.remember_tabs();
     app.leave_project();
     app.open_project(&root);
-    assert_eq!(app.tabs, [first, third.clone()]);
+    assert_eq!(app.ed.tabs, [first, third.clone()]);
     assert_eq!(app.opened.as_ref().map(|o| o.id.clone()), Some(third));
 }
 

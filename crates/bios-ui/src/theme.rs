@@ -117,6 +117,26 @@ pub const PRIMER_INK: Color32 = hex(0x8a2374);
 pub const PRIMER_LIFT: Color32 = hex(0xc874b4);
 pub const PRIMER_LIFT_INK: Color32 = hex(0x3d0a34);
 
+/// The colours one ribbon in the primer lane is drawn in: its fill, edge and letters, and the
+/// deeper shade (and its letters) of what does not anneal.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RibbonInk {
+    pub fill: Color32,
+    pub edge: Color32,
+    pub ink: Color32,
+    pub lift: Color32,
+    pub lift_ink: Color32,
+}
+
+/// A primer, a held binder and an alignment from Find.
+pub const PRIMER_RIBBON: RibbonInk =
+    RibbonInk { fill: PRIMER_FILL, edge: PRIMER_EDGE, ink: PRIMER_INK, lift: PRIMER_LIFT, lift_ink: PRIMER_LIFT_INK };
+
+/// What an Exact Find marked: drawn like a primer, so its strand and direction show, in the
+/// selection's blue so it reads as found rather than made (native only, PARITY.md).
+pub const FOUND_RIBBON: RibbonInk =
+    RibbonInk { fill: hex(0xd9e6fd), edge: hex(0x2f6fe4), ink: hex(0x1a4fb0), lift: hex(0x86a9ef), lift_ink: hex(0x0c2a66) };
+
 /// Build's two colours (`tokens.css`): new DNA going in, and the homology arms, which are
 /// backbone you already have and are drawn apart from the body for exactly that reason.
 pub const INSERT: Color32 = hex(0x23ac00);

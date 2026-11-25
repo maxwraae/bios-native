@@ -30,23 +30,23 @@ fn click(app: &mut App, name: &str) -> usize {
 fn a_click_on_a_feature_selects_it_and_opens_its_panel() {
     let (_dir, mut app) = app();
     let index = click(&mut app, "GFP");
-    assert_eq!(app.cursor.selection, Some((199, 499)));
-    let card = app.card.clone().unwrap();
+    assert_eq!(app.ed.cursor.selection, Some((199, 499)));
+    let card = app.ed.card.clone().unwrap();
     assert_eq!((card.feature, card.was.start, card.was.end), (index, 200, 500));
     assert_eq!((card.was.name.as_str(), card.was.forward, card.type_word.as_str()), ("GFP", true, "CDS"));
     // As in the web app, the panel stays open while the person works in the bases.
     app.gesture(Gesture::Press { gap: 10, shift: false }, 0.0);
-    assert!(app.card.is_some());
+    assert!(app.ed.card.is_some());
     // The feature through the origin is one feature with one panel.
     click(&mut app, "AmpR");
-    assert_eq!(app.card.as_ref().map(|c| (c.was.start, c.was.end)), Some((750, 100)));
+    assert_eq!(app.ed.card.as_ref().map(|c| (c.was.start, c.was.end)), Some((750, 100)));
 }
 
 #[test]
 fn leaving_a_field_writes_only_what_changed_and_the_panel_stays_on_the_new_record() {
     let (_dir, mut app) = app();
     let index = click(&mut app, "MCS");
-    let mut card = app.card.clone().unwrap();
+    let mut card = app.ed.card.clone().unwrap();
     card.edit.name = "polylinker ".into();
     card.edit.purpose = "where inserts go".into();
     card.edit.category = "linker".into();
@@ -59,11 +59,11 @@ fn leaving_a_field_writes_only_what_changed_and_the_panel_stays_on_the_new_recor
     assert_eq!(bios_engine::bios_note(feature, "category"), Some("linker"));
     assert_eq!(bios_engine::bios_note(feature, "use"), Some("where inserts go"));
     assert_eq!(opened.history.last().map(|e| e.command.as_str()), Some("update_feature"));
-    let after = app.card.clone().unwrap();
+    let after = app.ed.card.clone().unwrap();
     assert_eq!((after.was.name.as_str(), after.was.category.as_str(), after.was.purpose.as_str()), ("polylinker", "linker", "where inserts go"));
     let entries = opened.history.len();
     // A field left with nothing changed is not an edit.
-    let mut same = app.card.clone().unwrap();
+    let mut same = app.ed.card.clone().unwrap();
     same.edit = same.was.clone();
     app.commit_card(&same);
     assert_eq!(app.opened.as_ref().unwrap().history.len(), entries);
@@ -73,14 +73,14 @@ fn leaving_a_field_writes_only_what_changed_and_the_panel_stays_on_the_new_recor
 fn a_new_start_and_end_move_the_feature() {
     let (_dir, mut app) = app();
     let index = click(&mut app, "MCS");
-    let mut card = app.card.clone().unwrap();
+    let mut card = app.ed.card.clone().unwrap();
     card.edit.start = 590;
     card.edit.end = 9000;
     app.commit_card(&card);
     assert_eq!(app.problem, None);
     let feature = &app.opened.as_ref().unwrap().construct.features[index];
     assert_eq!((feature.start, feature.end), (589, 799), "an end past the last base is kept to the last base");
-    assert_eq!(app.card.as_ref().map(|c| (c.was.start, c.was.end)), Some((590, 800)));
+    assert_eq!(app.ed.card.as_ref().map(|c| (c.was.start, c.was.end)), Some((590, 800)));
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn a_primer_opens_the_same_panel_and_turns_round() {
     ask.name = "gfp-F".into();
     app.land(&ask);
     let index = click(&mut app, "gfp-F");
-    let mut card = app.card.clone().unwrap();
+    let mut card = app.ed.card.clone().unwrap();
     assert_eq!(card.type_word, "primer bind");
     card.edit.name = "gfp-R".into();
     card.edit.forward = false;
@@ -105,20 +105,20 @@ fn a_primer_opens_the_same_panel_and_turns_round() {
 fn opening_another_panel_lands_what_was_typed_in_the_first() {
     let (_dir, mut app) = app();
     let index = click(&mut app, "MCS");
-    if let Some(card) = app.card.as_mut() {
+    if let Some(card) = app.ed.card.as_mut() {
         card.edit.purpose = "where inserts go".into();
     }
     click(&mut app, "GFP");
     let feature = &app.opened.as_ref().unwrap().construct.features[index];
     assert_eq!(bios_engine::bios_note(feature, "use"), Some("where inserts go"));
-    assert_eq!(app.card.as_ref().map(|c| c.was.name.as_str()), Some("GFP"));
+    assert_eq!(app.ed.card.as_ref().map(|c| c.was.name.as_str()), Some("GFP"));
 }
 
 #[test]
 fn typing_puts_the_panel_away_because_the_feature_under_it_may_no_longer_be_the_same() {
     let (_dir, mut app) = app();
     click(&mut app, "MCS");
-    assert!(app.card.is_some());
+    assert!(app.ed.card.is_some());
     app.edit(|e| e.type_text("a"));
-    assert_eq!(app.card, None);
+    assert_eq!(app.ed.card, None);
 }

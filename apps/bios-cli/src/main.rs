@@ -30,6 +30,7 @@ bios-cli update [--check]                 install the newest release of Bios in 
 
 fn main() -> ExitCode {
     bios_update::set_up(bios_update::After::RunningWindow);
+    bios_ui::picture::set_up();
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     let agent = args.iter().any(|a| a == "--agent");
     args.retain(|a| a != "--agent");

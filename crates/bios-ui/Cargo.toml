@@ -10,6 +10,9 @@ workspace = true
 
 [dependencies]
 bios-core = { workspace = true }
+# The engine's picture command is answered here: drawing needs the interface's own fonts, and
+# only this crate may use the toolkit (`picture`).
+bios-engine = { workspace = true }
 bios-layout = { workspace = true }
 bios-project = { workspace = true }
 chrono = { workspace = true }

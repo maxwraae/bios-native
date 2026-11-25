@@ -29,6 +29,10 @@ pub enum Pressed {
     Close(usize),
     CloseOthers(usize),
     CloseRight(usize),
+    /// Open this tab's plasmid in the editor beside this one, making one if there is none.
+    ToSide(usize),
+    /// Open this tab's plasmid in a new window.
+    NewWindow(usize),
     /// The tab at the first index, being dragged, is now over the second: move it there.
     Move(usize, usize),
 }
@@ -141,6 +145,7 @@ impl TabStrip {
                         let others = tabs.len() > 1;
                         let right = i + 1 < tabs.len();
                         let groups = vec![
+                            vec![Item::new("Open to the side", Pressed::ToSide(i)), Item::new("Open in new window", Pressed::NewWindow(i))],
                             vec![Item::new("Close", Pressed::Close(i))],
                             vec![
                                 if others {

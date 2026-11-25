@@ -18,7 +18,10 @@ use super::labels::{
 };
 use super::presence::{MIN_MARK_PX, SEAM_PX, arc_mark, arc_seam};
 use super::projection::{NAV_RESERVE, Point, RingGeom, TAU, ring_geom, ring_point};
-use super::scene::{CUT_FONT, Flag, Frame, MapScene, flag_font, flag_row, group_thousands, lane_depth, lane_inset, nice_step};
+use super::scene::{
+    CUT_FONT, Flag, Frame, MapScene, PRIMER_HEAD_PX, PRIMER_NAME_GAP, flag_font, flag_row, group_thousands, lane_depth, lane_inset, nice_step,
+    primer_block, primer_font, primer_inset, primer_step, primer_thickness,
+};
 
 /// Which way a number on the scale is set against its tick.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -62,6 +65,23 @@ pub struct RingArc {
     /// A dashed hairline between two segments of a joined location, not a band.
     pub connector: bool,
     /// The direction mark: one corner of its base, its tip on the centre line, the other corner.
+    pub head: Option<[Point; 3]>,
+}
+
+/// A primer on the ring: a slim arrow on a thin ring of its own, hugging the backbone just inside
+/// it, with the feature lanes nesting below.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RingPrimer {
+    /// Index into [`MapScene::primers`].
+    pub primer: usize,
+    /// The shaft, after the mark floor and the seam. `width_frac` is 0 when the arrow is all head.
+    pub start_frac: f64,
+    pub width_frac: f64,
+    /// The lane's centre line.
+    pub radius: f64,
+    /// The arrowhead, on the piece that carries the primer's 3' end: one corner of its base, the
+    /// tip on the centre line, the other corner. The tip is at the 3' end, so the triangle points
+    /// the way the primer reads.
     pub head: Option<[Point; 3]>,
 }
 
@@ -111,9 +131,15 @@ pub struct RingMap {
     pub axis_r: f64,
     /// How thick a lane's band is drawn.
     pub thickness: f64,
+    /// How thick a primer's arrow is drawn.
+    pub primer_thickness: f64,
     pub ticks: Vec<RingTick>,
     pub arcs: Vec<RingArc>,
     pub arc_labels: Vec<ArcLabel>,
+    pub primers: Vec<RingPrimer>,
+    /// A primer's name along its own lane. `feature` indexes [`MapScene::primers`], not its
+    /// features.
+    pub primer_labels: Vec<ArcLabel>,
     pub flags: Vec<Flag>,
     pub cuts: Vec<RingCut>,
 }
@@ -174,6 +200,12 @@ impl Ring {
         self.feature_r - lane_depth(lane, self.sp)
     }
 
+    /// A primer lane's centre: lane 0 hugging the backbone, the rest nesting inward toward the
+    /// features, which have already moved in by `primer_block` to make room.
+    fn primer_r(&self, lane: usize) -> f64 {
+        self.axis_r - primer_inset(self.sp) - lane as f64 * primer_step(self.sp)
+    }
+
     /// Whether a point at this height is on the part of the ring in the frame.
     fn on_arc(&self, y: f64) -> bool {
         y <= self.h + 60.0 && y >= -60.0
@@ -222,7 +254,8 @@ pub fn layout_ring(scene: &MapScene, frame: Frame, mut measure: impl FnMut(&str,
         center: frame.center,
         sp,
         axis_r,
-        feature_r: axis_r - lane_inset(sp),
+        // The primer track takes the first room off the backbone, so the features nest below it.
+        feature_r: axis_r - lane_inset(sp) - primer_block(scene.primer_lanes_used(), sp),
         w: frame.w,
         h: frame.h,
         l: scene.length,
@@ -233,9 +266,12 @@ pub fn layout_ring(scene: &MapScene, frame: Frame, mut measure: impl FnMut(&str,
         center: frame.center,
         axis_r,
         thickness: sp.lane_thickness,
+        primer_thickness: primer_thickness(sp),
         ticks: Vec::new(),
         arcs: Vec::new(),
         arc_labels: Vec::new(),
+        primers: Vec::new(),
+        primer_labels: Vec::new(),
         flags: Vec::new(),
         cuts: Vec::new(),
     };
@@ -249,6 +285,7 @@ pub fn layout_ring(scene: &MapScene, frame: Frame, mut measure: impl FnMut(&str,
 
     map.ticks = ring_ticks(&ring, frame.width);
     map.arcs = ring_arcs(&ring, scene, &lanes);
+    (map.primers, map.primer_labels) = ring_primers(&ring, scene, &mut measure);
     let named = name_on_arcs(&ring, scene, &lanes, &mut measure);
     (map.flags, map.cuts) = ring_flags(&ring, scene, &lanes, &named, &mut measure);
     map.arc_labels = named.labels;
@@ -335,6 +372,102 @@ fn ring_arcs(ring: &Ring, scene: &MapScene, lanes: &[usize]) -> Vec<RingArc> {
         }
     }
     arcs
+}
+
+/// One primer arrow before its name has been placed, with what placing a name needs.
+struct LaidPrimer {
+    drawn: RingPrimer,
+    lane: usize,
+    /// The whole drawn piece, which a name may not be written over.
+    span: (f64, f64),
+    /// The primer's 5' edge, on the one piece that carries it and only while it is on the arc.
+    five: Option<f64>,
+}
+
+/// The primer track as a thin ring hugging the backbone: one slim arrow per drawn piece, the head
+/// at the 3' end so the shape says which way the oligo reads, in the primer lane its overlaps
+/// earned it.
+///
+/// The mark floor and the seam are converted at the primer lane's OWN radius, for the reason
+/// `presence` gives: a fixed fraction would be a different size in every lane.
+fn ring_primer_arcs(ring: &Ring, scene: &MapScene) -> Vec<LaidPrimer> {
+    let thick = primer_thickness(ring.sp);
+    let mut out = Vec::new();
+    for (i, p) in scene.primers.iter().enumerate() {
+        let lane = scene.primer_lane(i);
+        let r = ring.primer_r(lane);
+        if r <= 0.0 {
+            continue;
+        }
+        let pieces = feature_pieces(p, ring.l);
+        // The head goes on the piece holding the 3' end, the name on the one holding the 5'.
+        let (three, five) = if p.forward { (pieces.len().saturating_sub(1), 0) } else { (0, pieces.len().saturating_sub(1)) };
+        for (k, piece) in pieces.iter().enumerate() {
+            let floor = arrow_frac(MIN_MARK_PX, r);
+            let marked = arc_mark(piece.start_frac, piece.width_frac, floor);
+            let seam = arc_seam(marked.draw_start, marked.draw_width, arrow_frac(SEAM_PX, r), floor);
+            let head_frac = arrow_frac(PRIMER_HEAD_PX, r).min(seam.draw_width);
+            let head = (k == three).then(|| {
+                let (base, tip) = if p.forward {
+                    (seam.draw_start + seam.draw_width - head_frac, seam.draw_start + seam.draw_width)
+                } else {
+                    (seam.draw_start + head_frac, seam.draw_start)
+                };
+                [ring.point(base, r - thick / 2.0), ring.point(tip, r), ring.point(base, r + thick / 2.0)]
+            });
+            let shaft_start = if p.forward || head.is_none() { seam.draw_start } else { seam.draw_start + head_frac };
+            let shaft_width = if head.is_some() { seam.draw_width - head_frac } else { seam.draw_width };
+            let five_frac = if p.forward { seam.draw_start } else { seam.draw_start + seam.draw_width };
+            let five = (k == five && ring.on_arc(ring.point(five_frac, r).y)).then_some(five_frac);
+            out.push(LaidPrimer {
+                drawn: RingPrimer { primer: i, start_frac: shaft_start, width_frac: shaft_width, radius: r, head },
+                lane,
+                span: (seam.draw_start, seam.draw_width),
+                five,
+            });
+        }
+    }
+    out
+}
+
+/// The arrows, and each primer's name written along its own lane beside its 5' end where there is
+/// room for it: measured, and only where it crosses neither another oligo in that lane nor a name
+/// already set there. No flag out in the column, ever — twenty-two leaders into the side columns
+/// would bury the features the map is for.
+fn ring_primers(ring: &Ring, scene: &MapScene, measure: &mut impl FnMut(&str, f64) -> f64) -> (Vec<RingPrimer>, Vec<ArcLabel>) {
+    let laid = ring_primer_arcs(ring, scene);
+    let font = primer_font(ring.sp);
+    let mut taken: Vec<(usize, f64, f64)> = laid.iter().map(|l| (l.lane, l.span.0, l.span.0 + l.span.1)).collect();
+    let mut labels = Vec::new();
+    for item in &laid {
+        let (Some(edge), Some(p)) = (item.five, scene.primers.get(item.drawn.primer)) else { continue };
+        if p.name.is_empty() {
+            continue;
+        }
+        let r = item.drawn.radius;
+        let w = measure(&p.name, font) / (TAU * r);
+        let gap = arrow_frac(PRIMER_NAME_GAP, r);
+        if w <= 0.0 || w >= 1.0 {
+            continue;
+        }
+        // Away from the oligo: a forward primer reads with the bases, so its name sits upstream.
+        let (lo, hi) = if p.forward { (edge - gap - w, edge - gap) } else { (edge + gap, edge + gap + w) };
+        if taken.iter().any(|&(lane, a, b)| {
+            lane == item.lane && (overlaps(lo, hi, a, b) || overlaps(lo - 1.0, hi - 1.0, a, b) || overlaps(lo + 1.0, hi + 1.0, a, b))
+        }) {
+            continue;
+        }
+        taken.push((item.lane, lo, hi));
+        let frac = (lo + hi) / 2.0;
+        if !ring.on_arc(ring.point(frac, r).y) {
+            continue;
+        }
+        // Upright on the top of the ring, reversed on the bottom, as a name on an arc is.
+        let theta = ((((frac - ring.center) % 1.0) + 1.5) % 1.0 - 0.5) * TAU;
+        let upright = theta.cos() > 0.0;
+        labels.push(ArcLabel { feature: item.drawn.primer, text: p.name.clone(), frac, radius: r + if upright { -0.5 } else { 1.0 }, upright, font });
+    }
+    (laid.into_iter().map(|l| l.drawn).collect(), labels)
 }
 
 /// What the pass that writes names along their own arcs leaves for the pass that flags the rest.

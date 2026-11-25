@@ -24,12 +24,12 @@ impl App {
     /// Opens the panel of one of the open plasmid's features or primers. A panel already open on
     /// another one lands what was typed in it first, as leaving its field would have.
     pub(crate) fn open_card(&mut self, feature: usize) {
-        if let Some(open) = self.card.take()
+        if let Some(open) = self.ed.card.take()
             && open.changed()
         {
             self.commit_card(&open);
         }
-        self.card = self.opened.as_ref().and_then(|o| FeatureCard::of(&o.construct, feature));
+        self.ed.card = self.opened.as_ref().and_then(|o| FeatureCard::of(&o.construct, feature));
     }
 
     /// Writes what the panel holds, through `update_feature`, naming only what changed. The panel
@@ -81,14 +81,14 @@ impl App {
         let index = card.feature;
         if self.run("update_feature", params).is_some() {
             let fresh = self.opened.as_ref().and_then(|o| FeatureCard::of(&o.construct, index));
-            self.card = fresh.map(|fresh| {
+            self.ed.card = fresh.map(|fresh| {
                 let mut kept = card.refreshed(fresh);
                 kept.edit.start = start;
                 kept.edit.end = end;
                 kept
             });
         } else {
-            self.card = Some(card.clone());
+            self.ed.card = Some(card.clone());
         }
     }
 
@@ -106,10 +106,10 @@ impl App {
             return;
         }
         if !actions.is_empty() {
-            self.pane.layers.interactions = true;
+            self.ed.pane.layers.interactions = true;
         }
         let fresh = self.opened.as_ref().and_then(|o| FeatureCard::of(&o.construct, card.feature));
-        self.card = fresh.map(|fresh| card.refreshed(fresh));
+        self.ed.card = fresh.map(|fresh| card.refreshed(fresh));
     }
 
     /// Everything that floats over the rows and the map, drawn after both.
@@ -139,18 +139,34 @@ impl App {
         {
             primer_card::show(ctx, &facts, rect);
         }
-        if self.row_menu.is_some() {
+        if self.ed.row_menu.is_some() {
             return;
         }
         // A binder says what it is, and everywhere else it lands (`BinderCard.tsx`).
         if let Some((rows::Oligo::Binder(site), rect)) = seen.oligo
-            && let Some((_, sites)) = self.oligos.binder_at(&opened.id, site)
+            && let Some((_, sites)) = self.ed.oligos.binder_at(&opened.id, site)
         {
             binder_card::show(ctx, &sites, rect);
         }
+        // A Find hit says how it fits, on the hit, since the rows no longer caption it (PARITY.md).
+        if let Some((rows::Oligo::Probe(index), rect)) = seen.oligo
+            && let Some(hit) = self.ed.oligos.aligner.hits(self.revision).get(index)
+        {
+            let mut parts = vec![bios_core::find_align::probe_name(hit)];
+            parts.extend(bios_core::find_align::describe_hit(hit, Some(opened.construct.len())).split(" · ").map(str::to_string));
+            cut_hover::show(ctx, &parts, rect);
+        }
+        // What Exact found says what it is on the ribbon: its length and strand, or the enzyme.
+        if let Some((rows::Oligo::Found(index), rect)) = seen.oligo
+            && let Some(m) = self.ed.find.as_ref().and_then(|(_, matches, _)| matches.get(index))
+        {
+            let mut parts = vec!["found".to_string()];
+            parts.extend(m.label.split(" · ").map(str::to_string));
+            cut_hover::show(ctx, &parts, rect);
+        }
         if !CUT_NAMES_SHOWN
             && let Some((site, rect)) = seen.cut
-            && let Some(parts) = self.plan.as_ref().and_then(|p| p.site(site)).and_then(|s| cut_hover::describe(s.enzyme))
+            && let Some(parts) = self.ed.plan.as_ref().and_then(|p| p.site(site)).and_then(|s| cut_hover::describe(s.enzyme))
         {
             cut_hover::show(ctx, &parts, rect);
         }
@@ -161,7 +177,7 @@ impl App {
         let wanted = seen.menu.or_else(|| seen.selection.filter(|_| std::mem::take(&mut self.menu_on_open)).map(|r| r.center()));
         if let (Some(at), Some(opened)) = (wanted, &self.opened) {
             let binder = match seen.oligo {
-                Some((rows::Oligo::Binder(site), _)) => self.oligos.binder_at(&opened.id, site).map(|(index, _)| Thing::Binder(index)),
+                Some((rows::Oligo::Binder(site), _)) => self.ed.oligos.binder_at(&opened.id, site).map(|(index, _)| Thing::Binder(index)),
                 _ => None,
             };
             let thing = binder.or_else(|| {
@@ -171,23 +187,23 @@ impl App {
                 })
             });
             let cuts = self.cuts_here();
-            let groups = row_menu::with_translations(menu_groups(thing, self.cursor.selection.is_some(), &cuts), &self.translations_here());
-            self.row_menu = RowMenu::new(at, groups);
+            let groups = row_menu::with_translations(menu_groups(thing, self.ed.cursor.selection.is_some(), &cuts), &self.translations_here());
+            self.ed.row_menu = RowMenu::new(at, groups);
         }
-        let Some(mut menu) = self.row_menu.take() else {
+        let Some(mut menu) = self.ed.row_menu.take() else {
             return;
         };
         match row_menu::show(ui.ctx(), &mut menu) {
             Some(MenuOutcome::Run(action)) => self.menu_action(action, menu.at),
             Some(MenuOutcome::Close) => {}
-            None => self.row_menu = Some(menu),
+            None => self.ed.row_menu = Some(menu),
         }
     }
 
     /// The cuts the rows show whose top-strand cut falls inside the selection, in order
     /// (`SequenceRows.tsx` `cutsHere`).
     fn cuts_here(&self) -> Vec<CutHere> {
-        let (Some((start, end)), Some(plan)) = (self.cursor.selection, &self.plan) else {
+        let (Some((start, end)), Some(plan)) = (self.ed.cursor.selection, &self.ed.plan) else {
             return Vec::new();
         };
         let mut sites: Vec<_> = (0..).map_while(|i| plan.site(i)).filter(|c| c.top_cut >= start && c.top_cut <= end + 1).collect();
@@ -210,7 +226,7 @@ impl App {
 
     /// Does what was chosen from the menu, through the same paths the keys and the pill use.
     pub(crate) fn menu_action(&mut self, action: Action, at: egui::Pos2) {
-        let selection = self.cursor.selection;
+        let selection = self.ed.cursor.selection;
         let bases = match (&self.opened, selection) {
             (Some(o), Some((start, end))) => selection_readout::selected_bases(&o.construct, start, end),
             _ => String::new(),
@@ -218,7 +234,7 @@ impl App {
         match action {
             Action::Card(feature) => {
                 self.open_card(feature);
-                if let Some(card) = self.card.as_mut() {
+                if let Some(card) = self.ed.card.as_mut() {
                     card.anchor = Some(at);
                 }
             }
@@ -266,7 +282,7 @@ impl App {
                 if let Some(opened) = self.opened.as_mut() {
                     opened.editing.select(start, end);
                 }
-                self.anchor = None;
+                self.ed.anchor = None;
                 self.show_editing(None, true);
             }
             Action::Translate { forward, frame } => {
@@ -274,12 +290,12 @@ impl App {
                     // A selection through the origin reads only up to the end; the rows draw one run.
                     let (start, end) =
                         if end < start { (start, self.opened.as_ref().map_or(start, |o| o.construct.len().saturating_sub(1))) } else { (start, end) };
-                    self.pane.add_translation(&key, bios_layout::translations::Translation { start, end, forward, frame });
+                    self.ed.pane.add_translation(&key, bios_layout::translations::Translation { start, end, forward, frame });
                 }
             }
             Action::RemoveTranslation(index) => {
                 if let Some(key) = self.opened.as_ref().map(|o| o.id.as_str().to_string()) {
-                    self.pane.remove_translation(&key, index);
+                    self.ed.pane.remove_translation(&key, index);
                 }
             }
             Action::Optimise => {
@@ -305,7 +321,7 @@ impl App {
     }
 
     fn feature_card(&mut self, ui: &mut egui::Ui, rows_rect: Rect, seen: &rows::Seen) {
-        if let Some(mut card) = self.card.take() {
+        if let Some(mut card) = self.ed.card.take() {
             // Opened by a press: at the press. Opened otherwise: over the feature's place in the
             // rows, which is selected.
             let fallback = ui
@@ -314,24 +330,24 @@ impl App {
                 .or_else(|| seen.selection.map(|r| r.center_top()))
                 .unwrap_or_else(|| rows_rect.center_top() + egui::vec2(0.0, 40.0));
             let outcome = feature_card::show(ui.ctx(), &mut card, fallback);
-            self.card = Some(card.clone());
+            self.ed.card = Some(card.clone());
             if let Some(actions) = &outcome.actions {
                 self.write_actions(&card, actions);
-                card = self.card.clone().unwrap_or(card);
+                card = self.ed.card.clone().unwrap_or(card);
             }
             if outcome.commit && card.changed() {
-                self.card = None;
+                self.ed.card = None;
                 self.commit_card(&card);
             }
             if outcome.close {
-                self.card = None;
+                self.ed.card = None;
             }
         }
     }
 
     /// Opens ⌘F's bar, or gives its field the keyboard again; with `query`, with that typed.
     pub(crate) fn open_find(&mut self, query: Option<String>) {
-        match (&mut self.find, query) {
+        match (&mut self.ed.find, query) {
             (Some((bar, ..)), None) => bar.refocus(),
             (Some((bar, ..)), Some(query)) => {
                 bar.query = query;
@@ -339,7 +355,7 @@ impl App {
                 self.find_again();
             }
             (None, query) => {
-                self.find = Some((FindBar::new(query), Vec::new(), self.revision));
+                self.ed.find = Some((FindBar::new(query), Vec::new(), self.revision));
                 self.find_again();
             }
         }
@@ -348,8 +364,8 @@ impl App {
 
     /// Alignment draws on the rows, so asking to see a duplex raises them if only the map is shown.
     fn show_sequence(&mut self) {
-        if self.find.as_ref().is_some_and(|(bar, ..)| bar.mode == Mode::Alignment) && self.pane.focus == bios_layout::pane::Focus::Map {
-            self.pane.focus = bios_layout::pane::Focus::Split;
+        if self.ed.find.as_ref().is_some_and(|(bar, ..)| bar.mode == Mode::Alignment) && self.ed.pane.focus == bios_layout::pane::Focus::Map {
+            self.ed.pane.focus = bios_layout::pane::Focus::Split;
         }
     }
 
@@ -362,20 +378,26 @@ impl App {
             return find_matches(&opened.construct, &bar.query);
         }
         let n = opened.construct.len().max(1);
-        self.oligos
+        self.ed
+            .oligos
             .aligner
             .hits(self.revision)
             .iter()
-            .map(|h| FindMatch { start: h.alignment.start % n, end: h.alignment.end % n, forward: h.alignment.forward, label: describe_hit(h, None) })
+            .map(|h| FindMatch {
+                start: h.alignment.start % n,
+                end: h.alignment.end % n,
+                forward: h.alignment.forward,
+                label: describe_hit(h, Some(n)),
+            })
             .collect()
     }
 
     /// Finds the query again and goes to the first match.
     pub(crate) fn find_again(&mut self) {
-        let Some(found) = self.find.as_ref().map(|(bar, ..)| self.matches_of(bar)) else {
+        let Some(found) = self.ed.find.as_ref().map(|(bar, ..)| self.matches_of(bar)) else {
             return;
         };
-        if let Some((bar, matches, revision)) = &mut self.find {
+        if let Some((bar, matches, revision)) = &mut self.ed.find {
             *matches = found;
             *revision = self.revision;
             bar.index = 0;
@@ -385,18 +407,18 @@ impl App {
 
     /// Selects the current match and brings it into view.
     fn go_to_match(&mut self) {
-        let Some(m) = self.find.as_ref().and_then(|(bar, matches, _)| matches.get(bar.index)).cloned() else {
+        let Some(m) = self.ed.find.as_ref().and_then(|(bar, matches, _)| matches.get(bar.index)).cloned() else {
             return;
         };
         if let Some(opened) = self.opened.as_mut() {
             opened.editing.select(m.start, m.end);
         }
-        self.anchor = None;
+        self.ed.anchor = None;
         self.show_editing(None, true);
     }
 
     fn find_bar(&mut self, ui: &mut egui::Ui, pane: Rect) {
-        let Some((mut bar, mut matches, revision)) = self.find.take() else {
+        let Some((mut bar, mut matches, revision)) = self.ed.find.take() else {
             return;
         };
         // The query goes to the aligner, off this thread; its answer re-seeds the list at the first
@@ -405,12 +427,12 @@ impl App {
         let mut aligning = Aligning::default();
         let mut arrived = false;
         if let Some(opened) = &self.opened {
-            arrived = self.oligos.aligner.want(ui.ctx(), &opened.construct, self.revision, bases.clone());
+            arrived = self.ed.oligos.aligner.want(ui.ctx(), &opened.construct, self.revision, bases.clone());
             aligning = Aligning {
-                pending: self.oligos.aligner.pending(),
+                pending: self.ed.oligos.aligner.pending(),
                 too_long: bases.as_deref().and_then(|b| crate::oligos::too_long(&opened.construct, b)),
                 error: None,
-                capped: self.oligos.aligner.capped(self.revision),
+                capped: self.ed.oligos.aligner.capped(self.revision),
             };
         }
         // What is drawn changed under the bar: what it found is found again, staying where it was.
@@ -419,14 +441,14 @@ impl App {
             bar.index = bar.index.min(matches.len().saturating_sub(1));
         }
         let outcome = find_bar::show(ui, pane, &mut bar, &matches, &aligning);
-        self.find = Some((bar, matches, self.revision));
+        self.ed.find = Some((bar, matches, self.revision));
         if arrived {
             self.find_again();
         }
         match outcome {
             Some(find_bar::Outcome::Changed) => self.find_again(),
             Some(find_bar::Outcome::Mode(mode)) => {
-                if let Some((bar, ..)) = &mut self.find {
+                if let Some((bar, ..)) = &mut self.ed.find {
                     bar.mode = mode;
                 }
                 self.show_sequence();
@@ -436,11 +458,11 @@ impl App {
                 if let Some(query) = bases {
                     self.add_binder(&query);
                 }
-                self.oligos.aligner.clear();
-                self.find = None;
+                self.ed.oligos.aligner.clear();
+                self.ed.find = None;
             }
             Some(find_bar::Outcome::Step(by)) => {
-                if let Some((bar, matches, _)) = &mut self.find
+                if let Some((bar, matches, _)) = &mut self.ed.find
                     && !matches.is_empty()
                 {
                     let n = matches.len() as i64;
@@ -449,8 +471,8 @@ impl App {
                 self.go_to_match();
             }
             Some(find_bar::Outcome::Close) => {
-                self.oligos.aligner.clear();
-                self.find = None;
+                self.ed.oligos.aligner.clear();
+                self.ed.find = None;
             }
             None => {}
         }
@@ -462,45 +484,50 @@ impl App {
         let Some(opened) = &self.opened else {
             return;
         };
-        let Some((start, end)) = self.cursor.selection else {
-            self.primer_ask = None;
+        let Some((start, end)) = self.ed.cursor.selection else {
+            self.ed.primer_ask = None;
             return;
         };
-        if let Some(mut sheet) = self.ask.take() {
-            let top_left = selection_readout::placement(seen.selection, vec2(ask::WIDTH, 330.0), pane);
+        if let Some(mut sheet) = self.ed.ask.take() {
+            let top_left = selection_readout::placement(seen.selection, None, vec2(ask::WIDTH, 330.0), pane);
             match ask::show(ui, top_left + vec2(ask::WIDTH, 0.0), &mut sheet) {
                 Some(ask::Outcome::Done) => self.land(&sheet),
                 Some(ask::Outcome::Cancelled) => {}
-                None => self.ask = Some(sheet),
+                None => self.ed.ask = Some(sheet),
             }
             return;
         }
         // A new selection lets go of an ask opened for the last one.
-        if self.primer_ask.as_ref().is_some_and(|a| a.span != (start, end)) {
-            self.primer_ask = None;
+        if self.ed.primer_ask.as_ref().is_some_and(|a| a.span != (start, end)) {
+            self.ed.primer_ask = None;
         }
-        let on_primer = seen.bar.and_then(|(i, _)| opened.construct.features.get(i)).is_some_and(|f| f.kind == "primer_bind");
-        if on_primer && self.primer_ask.is_none() {
+        if !ui.input(|i| i.pointer.primary_down()) {
+            self.ed.sweeping = false;
+        }
+        if self.ed.sweeping && self.ed.primer_ask.is_none() {
             return;
         }
-        // Where Find's caption already describes this exact span, the pill would only cover it.
-        let n = opened.construct.len().max(1);
+        let on_primer = seen.bar.and_then(|(i, _)| opened.construct.features.get(i)).is_some_and(|f| f.kind == "primer_bind");
+        if on_primer && self.ed.primer_ask.is_none() {
+            return;
+        }
+        // Where the Find bar already describes this exact span, the pill would only repeat it.
         let hits: Vec<(usize, usize)> =
-            self.oligos.aligner.hits(self.revision).iter().map(|h| (h.alignment.start % n, h.alignment.end % n)).collect();
-        if self.primer_ask.is_none() && find_bar::readout_yields_to_find(Some((start, end)), &hits) {
+            self.ed.find.as_ref().map(|(_, matches, _)| matches.iter().map(|m| (m.start, m.end)).collect()).unwrap_or_default();
+        if self.ed.primer_ask.is_none() && find_bar::readout_yields_to_find(Some((start, end)), &hits) {
             return;
         }
         let selected = Selected::of(&opened.construct, start, end);
-        match selection_readout::show(ui, &selected, seen.selection, pane, self.primer_ask.as_mut(), true) {
+        match selection_readout::show(ui, &selected, seen.selection, seen.selection_gap, pane, self.ed.primer_ask.as_mut(), true) {
             Some(Outcome::Primer) => self.command(menus::NEW_PRIMER),
             Some(Outcome::Feature) => self.command(menus::NEW_FEATURE),
             Some(Outcome::Make { forward, name }) => {
-                self.primer_ask = None;
+                self.ed.primer_ask = None;
                 let mut primer = Ask::new(ask::What::Primer, forward);
                 primer.name = name;
                 self.land(&primer);
             }
-            Some(Outcome::Cancel) => self.primer_ask = None,
+            Some(Outcome::Cancel) => self.ed.primer_ask = None,
             None => {}
         }
     }

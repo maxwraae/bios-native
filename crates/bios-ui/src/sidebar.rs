@@ -88,7 +88,11 @@ pub enum Pressed {
 
 /// Where the toggle's centre sits from the window's left edge: just after the traffic lights,
 /// which run from 19 to 71, with room to breathe as the Claude app leaves.
-const TOGGLE_X: f32 = 100.0;
+///
+/// Only a Mac puts the window's buttons inside the head. Windows draws its own title bar above
+/// it, so there is nothing to clear there and the 100pt would be an empty gutter down the left of
+/// every window.
+const TOGGLE_X: f32 = if cfg!(target_os = "macos") { 100.0 } else { 16.0 };
 /// The "← Projects" row under the first row, a little apart from the name under it.
 const BACK_H: f32 = theme::SIDE_ROW + 4.0;
 /// The project's name line.

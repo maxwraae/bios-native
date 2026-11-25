@@ -30,7 +30,7 @@ fn release(at: Pos2) -> Vec<Event> {
 }
 
 fn tools() -> Tools {
-    Tools { can_undo: false, can_redo: true, focus: Focus::Split, style: MapStyle::Linear, fold_reason: Some("no".into()), open: None, side: None }
+    Tools { can_undo: false, can_redo: true, focus: Focus::Split, open: None, side: None }
 }
 
 /// Runs frames of the tool row, one per batch of events, and gives back what each asked for.
@@ -52,18 +52,54 @@ fn row(batches: Vec<Vec<Event>>) -> Vec<Option<Action>> {
 
 #[test]
 fn a_press_on_a_segment_asks_for_it() {
-    // "Map only" is the first segment of the view group: 202 + 77 + 14 + 98 + 6 + 3 = 400.
-    let at = pos2(415.0, 499.0);
+    // The row is 262 wide, centred at 400, so it starts at 269. "Map only" is the first segment
+    // of the view group, which now follows the history straight away: 269 + 77 + 14 + 3 + 15.
+    let at = pos2(378.0, 499.0);
     let asked = row(vec![press(at), release(at)]);
     assert!(asked.contains(&Some(Action::Focus(Focus::Map))), "{asked:?}");
 }
 
+/// The viewing controls in the map's top right corner (`map_tools`), run the same way.
+fn corner(batches: Vec<Vec<Event>>) -> Vec<Option<bios_ui::map_tools::Action>> {
+    use bios_ui::map_tools::{MapTools, show};
+    let ctx = egui::Context::default();
+    theme::install_fonts(&ctx);
+    let tools = MapTools { style: MapStyle::Circular, fold_reason: None, view_open: false };
+    let map = Rect::from_min_size(Pos2::ZERO, vec2(800.0, 400.0));
+    let mut asked = Vec::new();
+    for events in std::iter::once(Vec::new()).chain(batches) {
+        let mut action = None;
+        let out = ctx.run_ui(input(events), |ui| action = show(ui, map, &tools).0);
+        out.drop_without_applying_deltas();
+        asked.push(action);
+    }
+    asked
+}
+
+#[test]
+fn the_maps_corner_sets_the_style_and_opens_what_is_shown() {
+    use bios_ui::map_tools::Action as Corner;
+    // 140 wide, 16 in from the map's right edge, so it starts at 644; the style group is its
+    // first 98 and Linear its second segment: 644 + 3 + 31 + 15, 16 + 2 + 15 down.
+    let linear = pos2(693.0, 33.0);
+    let asked = corner(vec![press(linear), release(linear)]);
+    assert!(asked.contains(&Some(Corner::Style(MapStyle::Linear))), "{asked:?}");
+    // The View button is the group after it: 644 + 98 + 6 + 3 + 15.
+    let view = pos2(766.0, 33.0);
+    let asked = corner(vec![press(view), release(view)]);
+    assert!(asked.contains(&Some(Corner::View)), "{asked:?}");
+    // Nothing in the air the controls stand in from the corner, above them or beside them.
+    for miss in [pos2(790.0, 33.0), pos2(693.0, 8.0), pos2(600.0, 33.0)] {
+        assert!(corner(vec![press(miss), release(miss)]).iter().all(Option::is_none), "a press at {miss:?} asked for something");
+    }
+}
+
 #[test]
 fn forward_works_and_a_greyed_back_does_nothing() {
-    let back = pos2(205.0 + 17.0, 499.0);
+    let back = pos2(272.0 + 17.0, 499.0);
     let asked = row(vec![press(back), release(back)]);
     assert!(asked.iter().all(Option::is_none), "{asked:?}");
-    let forward = pos2(205.0 + 36.0 + 17.0, 499.0);
+    let forward = pos2(272.0 + 36.0 + 17.0, 499.0);
     let asked = row(vec![press(forward), release(forward)]);
     assert!(asked.contains(&Some(Action::Forward)), "{asked:?}");
 }
@@ -150,8 +186,9 @@ fn the_layers_popover_switches_enzyme_names_and_closes_on_a_press_elsewhere() {
     use bios_ui::view_tab::{self, Layers, Outcome};
     let ctx = egui::Context::default();
     theme::install_fonts(&ctx);
-    // The popover is 558 tall and opens 6 above its button, so with the button at y 700 its top is
-    // at 136; "Enzyme names" is the second row under the 25px title, at y 199..231.
+    // The popover is 590 tall and opens 6 above its button, so with the button at y 700 its top is
+    // at 104; the rows start under the 25px title at 135, each 32 tall. "Primers" is the second of
+    // them (y 167..199) and "Enzyme names" the third (199..231).
     let trigger = Rect::from_min_size(pos2(500.0, 700.0), vec2(30.0, 30.0));
     let screen = RawInput { screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(800.0, 900.0))), ..RawInput::default() };
     let run = |events: Vec<Event>| {
@@ -165,6 +202,10 @@ fn the_layers_popover_switches_enzyme_names_and_closes_on_a_press_elsewhere() {
     let row = pos2(300.0, 215.0);
     let outcomes = [run(press(row)), run(release(row))];
     assert!(outcomes.contains(&Some(Outcome::Changed(Layers { cut_names: false, ..Layers::default() }))), "{outcomes:?}");
+    // Primers is native's own row, on at rest, and switches like any other.
+    let row = pos2(300.0, 183.0);
+    let outcomes = [run(press(row)), run(release(row))];
+    assert!(outcomes.contains(&Some(Outcome::Changed(Layers { primers: false, ..Layers::default() }))), "{outcomes:?}");
     assert_eq!(run(press(pos2(100.0, 850.0))), Some(Outcome::Close));
 }
 
@@ -173,7 +214,7 @@ fn the_layers_popover_picks_the_base_colour() {
     use bios_ui::view_tab::{self, BaseStyle, Layers, Outcome};
     let ctx = egui::Context::default();
     theme::install_fonts(&ctx);
-    // As above, the popover's top is at 136. The base colour pills follow the title and nine
+    // As above, the popover's top is at 104. The base colour pills follow the title and ten
     // 32px rows: Calm and Muted side by side at y 482..511, Muted from x 403 to 516.
     let trigger = Rect::from_min_size(pos2(500.0, 700.0), vec2(30.0, 30.0));
     let screen = RawInput { screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(800.0, 900.0))), ..RawInput::default() };

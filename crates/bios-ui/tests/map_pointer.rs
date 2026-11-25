@@ -24,8 +24,10 @@ const LANE_R: f32 = 128.0;
 
 const LINE_LEFT: f32 = 40.0 + 44.0;
 const LINE_PER_BASE: f32 = 612.0 / 1200.0;
-const AXIS_Y: f32 = 30.0 + 177.0;
-const LANE_Y: f32 = 30.0 + 158.0;
+/// The line's axis and first lane: where centring the whole drawing in the 420-point frame puts
+/// them (`line_map::centring_shift`).
+const AXIS_Y: f32 = 30.0 + 214.25;
+const LANE_Y: f32 = 30.0 + 195.25;
 
 fn feature(name: &str, start: usize, end: usize) -> Feature {
     Feature {

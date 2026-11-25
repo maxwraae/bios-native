@@ -14,6 +14,8 @@
 //! - `zoom f`: a pinch by that factor (above 1 zooms in)
 //! - `key <chord>`: a key press and release, e.g. `key cmd+f`, `key shift+right`, `key escape`
 //! - `type <text>`: typed text, no spaces
+//! - `window <n>`: from here on the main window draws the nth Bios window (1 is itself, 2 the
+//!   second), and the steps act in it: the system cannot take a picture of a second window
 //! - `end`: the recording stops here
 
 use std::path::PathBuf;
@@ -30,6 +32,7 @@ enum Step {
     Zoom(f32),
     Key(egui::Key, Modifiers),
     Text(String),
+    Window(usize),
     End,
 }
 
@@ -107,6 +110,7 @@ fn parse(script: &str) -> Result<Vec<(f64, Step)>, String> {
                 steps.push((t, Step::Key(key, mods)));
             }
             "type" => steps.push((t, Step::Text(arg.ok_or_else(bad)?.to_string()))),
+            "window" => steps.push((t, Step::Window(arg.and_then(|a| a.parse().ok()).filter(|n: &usize| *n > 0).ok_or_else(bad)?))),
             "end" => steps.push((t, Step::End)),
             _ => return Err(bad()),
         }
@@ -130,6 +134,8 @@ pub struct Script {
     taken: u32,
     started: Instant,
     closing: bool,
+    /// Which window the main one draws, from the last `window` step.
+    window: Option<usize>,
 }
 
 impl Script {
@@ -142,7 +148,7 @@ impl Script {
         if let Some((dir, _)) = &record {
             std::fs::create_dir_all(dir).map_err(|e| format!("--record: {}: {e}", dir.display()))?;
         }
-        Ok(Some(Self { steps, next: 0, pos: pos2(0.0, 0.0), record, taken: 0, started: Instant::now(), closing: false }))
+        Ok(Some(Self { steps, next: 0, pos: pos2(0.0, 0.0), record, taken: 0, started: Instant::now(), closing: false, window: None }))
     }
 
     fn end(&self) -> f64 {
@@ -181,10 +187,16 @@ impl Script {
                     }
                 }
                 Step::Text(text) => raw.events.push(Event::Text(text)),
+                Step::Window(n) => self.window = Some(n),
                 Step::End => {}
             }
         }
         ctx.request_repaint();
+    }
+
+    /// The window a `window` step asked the main one to draw, counted from 1.
+    pub fn window(&self) -> Option<usize> {
+        self.window
     }
 
     /// Takes the pictures that are due, and closes the window once the script has run.
@@ -235,6 +247,8 @@ mod tests {
         assert!(parse("1 move ten").is_err());
         assert!(parse("x down").is_err());
         assert!(parse("1 fly 1,1").is_err());
+        assert!(parse("1 window 0").is_err());
+        assert_eq!(parse("1 window 2").ok().and_then(|s| s.first().cloned()), Some((1.0, Step::Window(2))));
         assert_eq!(chord("cmd+f"), Some((egui::Key::F, Modifiers::COMMAND)));
         assert_eq!(chord("shift+right"), Some((egui::Key::ArrowRight, Modifiers::SHIFT)));
         assert!(chord("cmd+nonsense").is_none());

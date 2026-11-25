@@ -28,6 +28,12 @@ pub struct MapScene {
     pub circular: bool,
     /// The cut sites drawn: each enzyme's top-strand scission (a gap coordinate) and its name.
     pub cuts: Vec<(i64, String)>,
+    /// The construct's primers, drawn in a track of their own off the backbone. Empty unless
+    /// [`MapScene::with_primers`] put them there, which is what the Primers layer decides.
+    pub primers: Vec<MapFeature>,
+    /// Which primer lane each primer draws in. Lane 0 hugs the backbone and overlapping primers
+    /// stack away from it, as [`MapScene::lanes`] does for features.
+    pub primer_lanes: Vec<usize>,
 }
 
 impl MapScene {
@@ -39,12 +45,21 @@ impl MapScene {
         let ctx = make_rank_context(length, circular, &ranked);
         let priorities = ranked.iter().map(|f| rank_feature(*f, &ctx)).collect();
         let lanes = assign_lanes(&features, length, None);
-        Self { features, priorities, lanes, length, circular, cuts: Vec::new() }
+        Self { features, priorities, lanes, length, circular, cuts: Vec::new(), primers: Vec::new(), primer_lanes: Vec::new() }
     }
 
     /// The same scene with these cut sites on it.
     pub fn with_cuts(self, cuts: Vec<(i64, String)>) -> Self {
         Self { cuts, ..self }
+    }
+
+    /// The same scene with these primers in its primer track (see [`super::display::display_primers`]).
+    ///
+    /// They are NOT coalesced the way features are: two oligos of the same name that happen to abut
+    /// are two oligos, not one long one.
+    pub fn with_primers(self, primers: &[MapFeature]) -> Self {
+        let primer_lanes = assign_lanes(primers, self.length, Some(MAX_PRIMER_LANES));
+        Self { primers: primers.to_vec(), primer_lanes, ..self }
     }
 
     pub(crate) fn priority(&self, i: usize) -> f64 {
@@ -53,6 +68,16 @@ impl MapScene {
 
     pub(crate) fn lane(&self, i: usize) -> usize {
         self.lanes.get(i).copied().unwrap_or(0)
+    }
+
+    pub(crate) fn primer_lane(&self, i: usize) -> usize {
+        self.primer_lanes.get(i).copied().unwrap_or(0)
+    }
+
+    /// How many primer lanes this scene actually needs: 0 with no primers, which is what keeps a
+    /// construct without any drawn exactly as it was before the track existed.
+    pub(crate) fn primer_lanes_used(&self) -> usize {
+        if self.primers.is_empty() { 0 } else { self.primer_lanes.iter().map(|l| l + 1).max().unwrap_or(1).min(MAX_PRIMER_LANES) }
     }
 }
 
@@ -158,6 +183,64 @@ pub fn cut_overhang(thickness: f64) -> f64 {
 pub fn lane_inset(sp: LabelSpacing) -> f64 {
     sp.lane_thickness / 2.0 + 12.0
 }
+
+// ── THE PRIMER TRACK ────────────────────────────────────────────────────────────────────────────
+//
+// A lane of its own between the molecule's axis and the feature lanes, on both projections: the
+// ring measures it inward from the backbone and the line measures it up from the axis, exactly as
+// the feature lanes are measured, so a primer hugs the backbone in either view.
+//
+// A DEPARTURE from the web app, which draws no oligos on its map (PARITY.md, Max 2026-11-25). The
+// numbers are the sequence rows' own: slimmer than a feature's band, its own lanes, the name beside
+// the 5' end (`rows.rs` `lanes.primers`, `row_features.rs` `PRIMER_BAR` and `NAME_GAP`). A map with
+// twenty-two primers on it has to still read as a map of its FEATURES, so everything here is
+// lighter: thinner, shorter-headed, smaller type, and never a flag out in the margin.
+
+/// How many lanes the primer track may grow to before the rest share its outermost one. Three: a
+/// fourth would push the features further off the backbone than the oligos are worth.
+pub const MAX_PRIMER_LANES: usize = 3;
+
+/// How thick a primer's arrow is drawn: a little under half a feature's band, which is what makes
+/// the track read as a margin note rather than another row of features.
+pub fn primer_thickness(sp: LabelSpacing) -> f64 {
+    sp.lane_thickness * 0.45
+}
+
+/// Centre-to-centre between two primer lanes.
+pub fn primer_step(sp: LabelSpacing) -> f64 {
+    primer_thickness(sp) + 4.0
+}
+
+/// The gap between the molecule's axis and the first primer lane's centre line.
+///
+/// Clear of the cut hashes, which reach [`cut_overhang`] either side of the axis on the line (6px
+/// on the ring): a hash drawn across an oligo's name is the one collision this track can actually
+/// have, because nothing else lives between the axis and the feature lanes.
+pub fn primer_inset(sp: LabelSpacing) -> f64 {
+    primer_thickness(sp) / 2.0 + cut_overhang(sp.lane_thickness) + 2.0
+}
+
+/// How much room the primer track takes between the axis and the feature lanes, which is how far
+/// the feature lanes move over to make way for it. 0 with no primers drawn.
+pub fn primer_block(lanes_used: usize, sp: LabelSpacing) -> f64 {
+    match lanes_used.checked_sub(1) {
+        None => 0.0,
+        Some(after_first) => primer_inset(sp) + after_first as f64 * primer_step(sp) + primer_thickness(sp) / 2.0,
+    }
+}
+
+/// How long a primer's arrowhead is, along the molecule. Shorter than a feature's
+/// [`super::direction::HEAD_PX`], because a primer is drawn as one arrow rather than as a band with
+/// a mark on it, and a 7px head on a 20-mer would be the whole oligo.
+pub const PRIMER_HEAD_PX: f64 = 5.0;
+
+/// Type size of a primer's name: a step under a feature's in-lane name, never below 7.
+pub fn primer_font(sp: LabelSpacing) -> f64 {
+    (sp.lane_font - 1.5).max(7.0)
+}
+
+/// Air between a primer's 5' end and its name, as the rows leave (`row_features::NAME_GAP`).
+pub const PRIMER_NAME_GAP: f64 = 5.0;
 
 /// How big a flag's type is. A flag is read across a gap rather than off the shape it names, so it
 /// does not shrink as far as an in-lane name does.

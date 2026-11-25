@@ -92,13 +92,13 @@ impl From<EditError> for GibsonError {
 // The web app's string and number primitives, so the arithmetic is the same one.
 // ---------------------------------------------------------------------------
 
-fn len64(s: &str) -> i64 {
+pub(crate) fn len64(s: &str) -> i64 {
     i64::try_from(s.len()).unwrap_or(i64::MAX)
 }
 
 /// `String.prototype.slice`: ends clamp into the string, a negative index counts back from its
 /// length, and a backwards range is empty rather than an error.
-fn js_slice(s: &str, start: i64, end: i64) -> &str {
+pub(crate) fn js_slice(s: &str, start: i64, end: i64) -> &str {
     let len = len64(s);
     let at = |x: i64| usize::try_from(if x < 0 { (len + x).max(0) } else { x.min(len) }).unwrap_or(0);
     let (a, b) = (at(start), at(end));
@@ -153,7 +153,7 @@ fn to_fixed(value: f64, digits: usize) -> String {
 }
 
 /// `Math.ceil(n / k)`, which is how every piece count here is sized.
-fn div_ceil(n: i64, k: i64) -> i64 {
+pub(crate) fn div_ceil(n: i64, k: i64) -> i64 {
     if k == 0 {
         return n;
     }
@@ -161,7 +161,7 @@ fn div_ceil(n: i64, k: i64) -> i64 {
 }
 
 /// `Number(x.toFixed(1))`: the temperature as it is reported and compared, not as it was computed.
-fn round1(x: f64) -> f64 {
+pub(crate) fn round1(x: f64) -> f64 {
     to_fixed(x, 1).parse::<f64>().unwrap_or(x)
 }
 
@@ -539,7 +539,7 @@ pub struct OverlapChoice {
 }
 
 /// The GC percentage of a stretch, 0 for an empty one.
-fn gc_of(s: &str) -> f64 {
+pub(crate) fn gc_of(s: &str) -> f64 {
     let u = s.to_uppercase();
     let len = u.encode_utf16().count();
     if len == 0 {

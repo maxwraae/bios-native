@@ -1,12 +1,15 @@
-//! The floating tool row at the foot of the editor pane, `.canvas-tools`: Back and Forward, the map
-//! style, the view, and the panels, four opaque pills centred over whatever is drawn, with a scrim
-//! under them. Ported from Bios `editor/HistoryControls.tsx` (60-123), `editor/MapControls.tsx`
+//! The floating tool row at the foot of the editor pane, `.canvas-tools`: Back and Forward, the
+//! view, and the panels, opaque pills centred over whatever is drawn, with a scrim under them.
+//!
+//! Native keeps only what changes what you EDIT down here (Max, 2026-11-25). The map's style and
+//! the layers moved to the map's own top right corner (`map_tools`), because they change what you
+//! SEE. The view trio stays: it is how the map comes back when the sequence has the pane. Ported from Bios `editor/HistoryControls.tsx` (60-123), `editor/MapControls.tsx`
 //! (139-207) and `styles.css` (`.canvas-tools`, its `::before`, the `--tools-floor` rule and the
 //! segment rules, lines 5659-5826; the greyed arrows, 9866-9882).
 //!
 //! The web's tooltips are its own ink pill after two seconds; here they are egui's.
 
-use bios_layout::pane::{Focus, MapStyle, TOOLS_AIR, TOOLS_H};
+use bios_layout::pane::{Focus, TOOLS_AIR, TOOLS_H};
 use egui::epaint::{Mesh, Vertex, WHITE_UV};
 use egui::{Pos2, Rect, Shape, Ui, pos2, vec2};
 
@@ -18,7 +21,8 @@ use crate::theme;
 /// The side panels a button in the row opens. Only ever one is open.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Panel {
-    /// "What's shown on the map": the layer toggles.
+    /// "What's shown on the map": the layer toggles. Its button is in the map's corner
+    /// (`map_tools`), not in this row; it stays a panel so `--panel layers` can open it.
     Layers,
     /// The scissors: which cut sites are drawn.
     Enzymes,
@@ -31,7 +35,6 @@ pub enum Panel {
 pub enum Action {
     Back,
     Forward,
-    Style(MapStyle),
     Focus(Focus),
     Panel(Panel),
 }
@@ -42,9 +45,6 @@ pub struct Tools {
     pub can_undo: bool,
     pub can_redo: bool,
     pub focus: Focus,
-    pub style: MapStyle,
-    /// Why Fold cannot run, which greys it and is its tooltip.
-    pub fold_reason: Option<String>,
     /// The popover whose button is lit.
     pub open: Option<Panel>,
     /// The side panel open on the pane's right, which lights its button too.
@@ -56,13 +56,13 @@ const ICON: f32 = 15.0;
 /// Between the history group and the map's controls, and between the map's own groups.
 const GAP_OUTER: f32 = 14.0;
 const GAP_INNER: f32 = 6.0;
+
 /// The scrim's run-up above the row, where it fades out.
 const SCRIM_RUN: f32 = 72.0;
 
 /// Where the row put the panels' buttons, for a popover to hang from.
 #[derive(Clone, Copy, Debug)]
 pub struct Placed {
-    pub layers: Rect,
     pub enzymes: Rect,
     pub contents: Rect,
     /// The whole row.
@@ -78,30 +78,12 @@ pub fn show(ui: &mut Ui, pane: Rect, bottom: f32, tools: &Tools) -> (Option<Acti
         Segment { face: Face::Icon(lucide::UNDO_2, ICON), active: false, enabled: tools.can_undo, tip: undo_tip },
         Segment { face: Face::Icon(lucide::REDO_2, ICON), active: false, enabled: tools.can_redo, tip: redo_tip },
     ];
-    let no_map = tools.focus == Focus::Sequence;
-    let fold_tip = tools.fold_reason.clone().unwrap_or_else(|| "Fold — secondary structure".to_string());
-    let styles = [
-        Segment { face: Face::Icon(lucide::CIRCLE, ICON), active: tools.style == MapStyle::Circular, enabled: !no_map, tip: "Circular map" },
-        Segment { face: Face::Icon(lucide::MINUS, ICON), active: tools.style == MapStyle::Linear, enabled: !no_map, tip: "Linear map" },
-        Segment {
-            face: Face::Icon(lucide::SPLINE, ICON),
-            active: tools.style == MapStyle::Fold,
-            enabled: !no_map && tools.fold_reason.is_none(),
-            tip: &fold_tip,
-        },
-    ];
     let views = [
         Segment { face: Face::Icon(lucide::SQUARE, ICON), active: tools.focus == Focus::Map, enabled: true, tip: "Map only" },
         Segment { face: Face::Icon(lucide::ROWS_2, ICON), active: tools.focus == Focus::Split, enabled: true, tip: "Map and sequence" },
         Segment { face: Face::Icon(lucide::ALIGN_JUSTIFY, ICON), active: tools.focus == Focus::Sequence, enabled: true, tip: "Sequence only" },
     ];
     let panels = [
-        Segment {
-            face: Face::Icon(lucide::SLIDERS_HORIZONTAL, ICON),
-            active: tools.open == Some(Panel::Layers),
-            enabled: true,
-            tip: "What's shown on the map",
-        },
         Segment {
             face: Face::Icon(lucide::SCISSORS, ICON),
             active: tools.open == Some(Panel::Enzymes) || tools.side == Some(Side::Enzymes),
@@ -110,8 +92,8 @@ pub fn show(ui: &mut Ui, pane: Rect, bottom: f32, tools: &Tools) -> (Option<Acti
         },
         Segment { face: Face::Icon(lucide::TAGS, ICON), active: tools.side == Some(Side::Contents), enabled: true, tip: "Features & annotations" },
     ];
-    let widths = [group_width(ui, &history, false), group_width(ui, &styles, true), group_width(ui, &views, true), group_width(ui, &panels, true)];
-    let total: f32 = widths.iter().sum::<f32>() + GAP_OUTER + 2.0 * GAP_INNER;
+    let widths = [group_width(ui, &history, false), group_width(ui, &views, true), group_width(ui, &panels, true)];
+    let total: f32 = widths.iter().sum::<f32>() + GAP_OUTER + GAP_INNER;
     let top = bottom - TOOLS_H as f32;
     let mut x = (pane.center().x - total / 2.0).round();
     let row = Rect::from_min_size(pos2(x, top), vec2(total, TOOLS_H as f32));
@@ -120,20 +102,16 @@ pub fn show(ui: &mut Ui, pane: Rect, bottom: f32, tools: &Tools) -> (Option<Acti
         action = Some(if i == 0 { Action::Back } else { Action::Forward });
     }
     x += widths[0] + GAP_OUTER;
-    if let Some(i) = group(ui, pos2(x, top), &styles, Material::Float, true) {
-        action = [MapStyle::Circular, MapStyle::Linear, MapStyle::Fold].get(i).map(|s| Action::Style(*s));
-    }
-    x += widths[1] + GAP_INNER;
     if let Some(i) = group(ui, pos2(x, top), &views, Material::Float, true) {
         action = [Focus::Map, Focus::Split, Focus::Sequence].get(i).map(|f| Action::Focus(*f));
     }
-    x += widths[2] + GAP_INNER;
+    x += widths[1] + GAP_INNER;
     if let Some(i) = group(ui, pos2(x, top), &panels, Material::Float, true) {
-        action = [Panel::Layers, Panel::Enzymes, Panel::Contents].get(i).map(|p| Action::Panel(*p));
+        action = [Panel::Enzymes, Panel::Contents].get(i).map(|p| Action::Panel(*p));
     }
     // 1px ring + 2px padding, then 30-wide segments 1px apart.
     let seg = |i: f32| Rect::from_min_size(pos2(x + 3.0 + i * 31.0, top + 2.0), vec2(30.0, 30.0));
-    (action, Placed { layers: seg(0.0), enzymes: seg(1.0), contents: seg(2.0), row })
+    (action, Placed { enzymes: seg(0.0), contents: seg(1.0), row })
 }
 
 /// The fade under the row (`.canvas-tools::before`): the paper coming back up under the buttons. A

@@ -11,3 +11,5 @@ workspace = true
 [dependencies]
 craft-xtask = { workspace = true }
 serde_json = { workspace = true }
+# SHA256SUMS.txt is written here rather than by `shasum`, so a Mac and a PC produce the same bytes.
+sha2 = { workspace = true }

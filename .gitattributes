@@ -1,0 +1,11 @@
+# Git never rewrites a line ending in this repository.
+#
+# What this prevents: Git for Windows ships with `core.autocrlf=true`, so a checkout there would
+# turn every LF into CRLF. Bios's correctness comes from recorded answers (see AGENTS.md) and the
+# sequence files under `crates/*/tests/fixtures/` are compared byte for byte, so a rewritten line
+# ending makes those tests fail for a reason that has nothing to do with the code — and invites
+# someone to "fix" a recorded answer, which that file forbids. `install.sh` would also stop being
+# runnable, since `/bin/sh` does not accept a CR at the end of a line.
+#
+# `-text` means: store and check out exactly these bytes, on every platform.
+* -text

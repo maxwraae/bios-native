@@ -16,6 +16,18 @@ Left out on purpose: sharing, accounts and the account menu, the assistant chat 
 agent connects over MCP instead, so Build's "Ask Bios" is not here either), the old pickme
 plate grid and BLAST in Verify, project avatars and invitations.
 
+## On Windows
+
+Bios is one source tree and differs only in how it is packaged, but three things a Mac has are
+deliberately not matched, and this is the list of them.
+
+| Piece | On a Mac | On Windows | Why |
+|---|---|---|---|
+| The title bar | None: the window's content runs to the top edge and the traffic lights sit inside the 38pt head | The system's own title bar, above the head | Windows draws no traffic lights, and its close, maximise and Snap Layouts buttons are worth more than 32px and a seam. Drawing our own would mean a `WM_NCHITTEST` reply for Snap Layouts, which needs `unsafe`, which Rust rule 1 forbids. |
+| Updating itself | Replaces itself where it is installed | Says what to run — the `install.ps1` line again, which replaces it in place | craft-update's portable installer needs a version resource in the exe, a stored ownership record and an exit-and-swap helper, and none of it can be compiled on a Mac. Finding a new version already works on both. |
+| Bringing the window to the front | `open -a` raises it | Starts it when it is not running; does not raise it when it is | `show_in_bios` already spawns `bios.exe`; only activation is missing, and it already says "ask the person to bring Bios to the front". |
+| The sequence font | The system's SF Mono, with its weight axis | The toolkit's own monospace, one weight | SF Mono is not on Windows. The bases still read; they are a little flatter. |
+
 ## Foundation
 
 | Piece | Web source | Status |
@@ -36,6 +48,8 @@ plate grid and BLAST in Verify, project avatars and invitations.
 | Sidebar right-click menus, rename, delete confirm, drag | `layout/RailMenu.tsx`, `SessionNav.tsx` | partial (folder delete has no command; no keyboard tree navigation) | |
 | Sidebar resize 168–420 | `layout/RailResizer.tsx`, `railWidth.ts` | matches | |
 | Plasmid tabs | `layout/TabStrip.tsx`, `tabStrip.css` | matches (a tab dragged over its neighbours moves as it goes) | tabs 99% |
+| Two plasmids at once: split view | none | native only (Max, 2026-11-25): Window > Open to the Side (⌘\) or a tab's "Open to the side" puts a second editor beside the first, side by side only, each with its own tabs, the divider dragged (each side at least 360 wide, double-click halves it). One plasmid on both sides is one working copy: an edit shows on both at once and is saved once. A press on a side makes it the one worked on: its tab in front carries the place's colour, the other's is grey, and menus and keys act on it; the pill, cards, menus and Find float only over that side. Closing a side's last tab closes the side. Held binders belong to one side | |
+| Two plasmids at once: a second window | none | native only (Max, 2026-11-25): Window > Open in New Window (⌥⌘N, since ⌘⇧N is New Project) or a tab's "Open in new window" opens a whole Bios window on the same project in the same process: its own sidebar, place, tabs and editors, which can split too. The same plasmid in two windows is one working copy. The window in front is the one menus and keys act in; going to a window that shows another plasmid saves first. Closing a second window closes only it; switching project closes the others. Sheets that stand over the whole window (⌘P, Settings, prompts, dialogs, the documentation) open over the main window. Only the main window's tabs come back on the next launch. A tab cannot be dragged out to make a window. The second window's traffic lights sit where the system puts them | |
 | Name, length, description over the map | `editor/PlasmidTitle.tsx` | matches | |
 | All projects page | `projects/ProjectsHome.tsx`, `ProjectsRail.tsx`, `ProjectMap.tsx`, `projectFilter.ts`, `pinned.ts` | differs on purpose: it lists the folders opened lately (Bios opens folders anywhere, like a code editor), a card's foot has a third line saying where its folder is, an Open folder tile sits beside New project, and a card can be removed from the list; otherwise as checked side by side at 1440×900 (no Shared row, ask box, people or Share: local only) | |
 | Settings: Appearance, Keyboard, About | `platform/SettingsModal.tsx`, `keys/KeyboardSettings.tsx`, `keymap.ts` | matches (checked side by side; no Account, update check or demo switch) | |
@@ -57,13 +71,15 @@ plate grid and BLAST in Verify, project avatars and invitations.
 | Zoom and pan on the map | `overview/PlasmidOverview.tsx`, `viewport.ts`, `useViewport.ts` | matches (the zoom eases toward an accumulating target at `ZOOM_RATE` 22, frame-rate independent; a circular map unrolls into the line between widths 0.62 and 0.3, `renderMorph`: backbone, bands, heads and names along the band, no scale or cuts mid-unroll, as the web; clicks mid-unroll read off the ring or the line by the viewport's projection and catch no feature, as the web's `fracAt`) | widths 1 / 0.5 / 0.4 / 0.3 against the web: same drawing |
 | The flywheel (wind a ring up, it spins, sparks, blurs, burns and rolls off; Go get it) | `overview/flywheel.ts`, `useFlywheel.ts`, `PlasmidOverview.tsx` (carriage, `Flames`, `RpmReadout`), `styles.css` `.overview-rolled` | matches (physics and its 22 tests ported exactly; the blur is five faint copies of the ring, egui having no blur filter; the glow is drawn where browsers draw it, inside the rim; the spark seed starts at 1, not the clock; never turned off for reduced motion) | each stage against the web, caught with `--flywheel` |
 | Cut-site names on the map | `PlasmidOverview.tsx` `layoutLineAnnotations` | matches | map 100% |
-| Map drawing (ring and line) | `editor/overview/` | matches | |
+| Where the viewing controls live | `editor/MapControls.tsx`, `editor/HistoryControls.tsx` | **differs on purpose** (Max, 2026-11-25): what changes what you SEE sits in the map's own top right corner (`bios_ui::map_tools`) — circular/linear/fold and the View popover of layer switches, opening downward. The floating row at the foot keeps what changes what you EDIT: Back/Forward, the view trio (map/split/sequence, which stays because it is how the map comes back), the enzymes to cut with, and Contents. The corner shows only while a map is on screen | |
+| Map drawing (ring and line) | `editor/overview/` | matches, except: **differs on purpose** (Max, 2026-11-25) the line is centred on everything it draws, names and cut labels included, and kept clear of the title when there is room; the web centres the lanes and keeps 92 px under the axis, which left a short pane's map high with a gap beneath (`line_map.rs` `centring_shift`) | |
+| Primers on the map | — (the web's map draws no oligos) | **differs on purpose** (Max, 2026-11-25): the construct's `primer_bind` features are drawn on the map, always, in a track of their own off the backbone — between the axis and the feature lanes on the line, a thin ring hugging the backbone on the ring, with the feature lanes nesting below it either way. Each oligo is a slim arrow with its head at the 3' end, so the shape says which way it reads, as the rows' ribbon does; overlapping primers stack into up to three lanes; the name is set beside the 5' end where it fits without crossing another oligo in that lane. Lighter than a feature everywhere: a band under half as thick, smaller type, the rows' own primer violet, and never a flag out in the margin, so a map with twenty-two primers still reads as a map of its features. The track starts clear of the cut hashes. The new Primers layer takes it off, and with it off the map is laid out exactly as it was before the track existed — which is what the parity harness turns off to compare against the web. Not drawn mid-unroll, as the cuts and the scale are not (the features step past the track there, so nothing jumps), and not hit-tested: a press on an oligo places a caret as the backbone does (`scene.rs` the primer track, `ring_map.rs` `ring_primers`, `line_map.rs` `line_primers`) | |
 | Amino acids and ORFs in the rows | `rows/RowTranslations.tsx`, `translations.ts`, `SequenceRows` `findOrfs` | matches (a coding feature through the origin is not translated) | |
 | The rows follow a zoom of the map | `editor/PlasmidEditor.tsx` 660-824 | matches (a zoom by hand scrolls the rows to the map's window, a pan does not, an echo of the rows' own click does not; the map alone at 9 px a base turns to the sequence behind a 500 ms door, and zooming the rows back out returns to the focus it came from) | |
 | The strip | `editor/PlasmidEditor.tsx` 706-830, `rows/SequenceRows.tsx` (`strip`, `zoomLine`, 248-460, 764-832, 1153-1241, 1316-1335, 1566-1585) | partial (in the split the map pane becomes the rows' own row, unwrapped, at 9 px a base, opening on the map's window behind a 500 ms door: features, primers, parts, ORFs, cuts with their names, amino acids and the selection, the weld on the pane's middle, the last base in view at the right; plain scroll slides it, pinch or ⌘-wheel zooms about the base under the pointer to 48 px a base; the seam draws and drags its window; the rows below follow its zoom; a caret put outside it from elsewhere slides it; zoomed under 7 px a base it hands back and the map flies out to that stretch at 5 px a base; leaving the split or the construct puts the map back. Not yet: Find's captions, as on the web; a primer's end grip shows but does not drag, as on the web) | strip side by side by eye |
 | Rows zoom, edge scroll, double-click a selection | `rows/SequenceRows.tsx` (`onWheel`, `edgeScroll`, `onPointerUp`) | matches (pinch or ⌘-wheel about the base under the pointer; under 7 px a base the rows hand back to the map at the base in their middle, the map zooming to a quarter of the construct or 5 px a base, and come back at 16 px a base; a drag held at an edge scrolls on; a double-click opens the selection's menu, a single click collapses after 280 ms) | |
 | Sequence rows | `editor/rows/` | matches (native also draws joined features as segments and cut staircases across rows, from web work that was never shipped) | rows 100% |
-| Layers, base colour, label density | `leftpanel/ViewTab.tsx`, `editor/layers.ts` | partial (Features, Enzyme names, Binders, ORFs, Amino acids, Reverse strand, Position ruler, Interactions, Parts, the counted Splice-map hits toggle, base colour and density honoured; the rest greyed) | |
+| Layers, base colour, label density | `leftpanel/ViewTab.tsx`, `editor/layers.ts` | partial (Features, Enzyme names, Binders, ORFs, Amino acids, Reverse strand, Position ruler, Interactions, Parts, the counted Splice-map hits toggle, base colour and density honoured; the rest greyed), with one row of native's own: **Primers differs on purpose** (Max, 2026-11-25), under Features and on by default, for the primer track the web's map has nothing of (see "Primers on the map"). It is not Binders, which is the web's `layerVisibility.primers` and governs the oligo lane in the rows | |
 | Interactions layer | `rows/RowInteractions.tsx`, `overview/chords.ts`, `interactions.ts` | matches (a lane of brackets and stubs per row, chords through the ring, brackets over the line, hover in either view greys back what is not wired; checked side by side on wrap_demo and the lab construct) | |
 | Parts lane | `rows/RowFeatures.tsx` (`TRACK.parts`), `SequenceRows.tsx` | ported (`/pragma="Teselagen_Part"` features in their own lane, outermost; left off the map and the feature lists. Not compared side by side: the parity harness seeds the web through its server, which drops parts) | |
 | Enzyme dial and Enzymes panel | `EnzymesMenu.tsx`, `EnzymesPanel.tsx`, `enzymeList.ts` | matches (the dial's names-off note and All enzymes door; the panel's search, Common / All / IIS / Blunt, groups, on-the-map toggle and sites; also the `list_enzymes` command. Enzymes put on the map by name are not drawn lit) | |
@@ -75,10 +91,10 @@ plate grid and BLAST in Verify, project avatars and invitations.
 |---|---|---|
 | Feature card | `editor/FeatureCard.tsx`, `feature/ActsOn.tsx` | matches (Acts on is written with `set_feature_actions`: free verbs with the construct's own as suggestions, several targets, remove, lands on a tick or a 600 ms pause, turns Interactions on; checked side by side) |
 | Primer hover card, cut hover card | `primer/PrimerCard.tsx`, `CutHoverCard.tsx` | matches for the primer card (checked side by side on the lab construct and wrap_demo, 2026-11-22: the whole drawn box with its name answers, the card sits by that box, stays up with the menu open and through an end drag, and comes in with `sr-in`); the cut card is not shown, the rows always print the names |
-| Selection readout pill and its verbs | `editor/SelectionReadout.tsx` | matches (+ Primer's direction guess, name, verdict and ✓ checked side by side; landing parks the caret at the footprint's end; the verbs ease into their hover; the pill comes in with `sr-in`) |
+| Selection readout pill and its verbs | `editor/SelectionReadout.tsx` | matches (+ Primer's direction guess, name, verdict and ✓ checked side by side; landing parks the caret at the footprint's end; the verbs ease into their hover; the pill comes in with `sr-in`). Differs on purpose (2026-11-25, Max): it stands in the clear air between the selection's row and the row above, not 8 px over the highlight where it covered lanes; it waits for the press to be released, as a text selection's menu does; and it stands down on any Find hit stepped to, Exact too, since the bar already says what it is |
 | Right-click menu | `editor/rows/RowMenu.tsx` | partial (Binder and Remove binder ported; Translate this floats frames ±1–3 over the selection, held per open plasmid and never saved, and removes them; adds Remove feature, which the web did through its assistant) |
-| Find in the plasmid (⌘F) | `editor/FindBar.tsx` | matches (Alignment the default and Exact; see Binders and Find below for the size limit) |
-| Binders, binder hover card, Find's alignment drawn with captions, primer end drag | `binders.ts`, `BinderCard.tsx`, `alignment.ts`, `find/useProbeHits.ts`, `rows/RowProbe.tsx`, `readoutYield.ts`, `primer/PrimerDrag.tsx` | ported (2026-11-22). Differences: every query is aligned by Smith-Waterman on its own thread, up to 60 M cells (about 2 s; a 5.3 kb query on a 6 kb circle), and the bar says the limit where the web hands larger queries to minimap2 up to 50 kb |
+| Find in the plasmid (⌘F) | `editor/FindBar.tsx` | matches (Alignment the default and Exact; see Binders and Find below for the size limit). Differs on purpose (2026-11-25, Max): what the current hit is (`107 bp · minus strand`, or `22/28 nt aligned · … · would prime`) is a second line inside the bar, in both modes; the web's pill under the bar, which covered the map, is gone. Native only: each place Exact lands is drawn as a ribbon in the primer lane, in the selection's blue, with its strand and direction, for as long as the bar is open, so it stays seen while the person clicks elsewhere |
+| Binders, binder hover card, Find's alignment drawn, primer end drag | `binders.ts`, `BinderCard.tsx`, `alignment.ts`, `find/useProbeHits.ts`, `rows/RowProbe.tsx`, `readoutYield.ts`, `primer/PrimerDrag.tsx` | ported (2026-11-22). Differences: every query is aligned by Smith-Waterman on its own thread, up to 60 M cells (about 2 s; a 5.3 kb query on a 6 kb circle), and the bar says the limit where the web hands larger queries to minimap2 up to 50 kb. On purpose (2026-11-25, Max): the rows no longer caption each alignment (`RowProbe.tsx`); the current hit's sentence is in the Find bar, and any hit says it in a card when the pointer is on it |
 | New-feature sheet: name, why it's here, direction, what it serves, what it is | `editor/AskSheet.tsx`, `feature/newFeature.ts` | partial (every field, through `add_feature`'s new category, why and serves; drawn with the native sheet's chips rather than the web's glass) |
 
 ## Last 10%
@@ -228,6 +244,36 @@ difference comes back with its position on both plasmids, the feature it falls i
 what it does to the protein. Bios's own, not a port: k-mer anchoring to find the register and to
 break the pair into stretches, a global Needleman-Wunsch with affine gaps over each stretch, and a
 stretch that turns out to resemble nothing reported as replaced instead of base by base.
+
+Native only (2026-11-25): **a picture an agent can look at**. The web app draws its map and its
+rows on a screen for the person and has no way to hand either to an agent; `draw_plasmid` writes
+one to a file, as a PNG an agent opens and reads or as an SVG, in any of the three views (ring,
+line, the sequence rows). It is not a second renderer: a frame of the real map or the real rows is
+run without a window — the toolkit lays text out with Bios's own fonts and needs no screen for it
+— and the shapes that frame produced are written out as SVG (`bios-ui::svg`), so the picture is
+what the window draws and a change to either shows up in it by itself. The PNG is made by macOS's
+own QuickLook, which costs no dependency; elsewhere the answer says so and the SVG stands. Without
+a `path` the file goes to a scratch folder outside every project: a picture nobody asked to keep
+never lands in the person's own folders.
+
+Native only (Max, 2026-11-25): **building a sequence out of oligos**. The web app can split a long
+insert into synthesis pieces to order as eBlocks (`splitEblock` in `packages/dna-core/src/gibson.ts`),
+but it has nothing that makes a gene from short oligos. `design_assembly_oligos` takes a sequence
+and two conditions — the longest oligo that can be ordered, 60 nt by default, and the temperature
+every overlap should melt at, 60 °C by default — and returns the numbered list to order. The
+oligos alternate strands and are staggered so each overlaps both its neighbours; the overlaps are
+what anneal, so they are sized by temperature and not by length, and the oligos come out uneven
+under the cap. PCR fills the gaps and the two primers it also returns amplify the result.
+
+Two things always hold, and `bios-core::assembly`'s tests check both on every plan: the oligos put
+back together are the sequence that was asked for, found by the stretch they share rather than by
+the coordinates they were cut at, and no oligo is over the cap. The temperature is not always
+reachable, because two overlaps sit on one oligo and cannot both be long, so the design comes down
+a degree at a time until it finds one temperature every junction in some tiling can meet, and says
+what that floor is (`anneal_tm`) — one temperature for the whole reaction beats a ragged spread
+that happens to include the number asked for. It also counts the other places each overlap could
+anneal, because an overlap that lands twice assembles the pieces in the wrong order, which is the
+failure that costs a week and is invisible on the order form.
 
 ## Primers, side by side (2026-11-22)
 

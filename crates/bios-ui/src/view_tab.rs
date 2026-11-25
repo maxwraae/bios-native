@@ -3,10 +3,14 @@
 //! and `components/ToggleRow.tsx`, their look from `styles.css` (`.view-tab`, `.view-section-title`,
 //! `.base-style-seg`, `.toggle-row`, lines 2992-3096; `.oge-pop-panel`, 6790-6802).
 //!
-//! The native map honours Features, Enzyme names and Label density, and the rows Features, Enzyme
-//! names, Binders, ORFs, Amino acids, Reverse strand, Position ruler, Interactions, Parts and the
-//! base colour. Every other row is shown as the web shows it, greyed (`.toggle-row.is-disabled`),
-//! because the native map and rows cannot draw it yet; its tooltip says so.
+//! The native map honours Features, Primers, Enzyme names and Label density, and the rows Features,
+//! Enzyme names, Binders, ORFs, Amino acids, Reverse strand, Position ruler, Interactions, Parts and
+//! the base colour. Every other row is shown as the web shows it, greyed
+//! (`.toggle-row.is-disabled`), because the native map and rows cannot draw it yet; its tooltip says
+//! so.
+//!
+//! Primers is a row of native's own (Max, 2026-11-25): the web's map draws no oligos, so it has no
+//! such layer. See `PARITY.md`.
 
 use bios_layout::overview::labels::{LABEL_DENSITY_DEFAULT, LabelDensity};
 use egui::{Align2, Area, CornerRadius, CursorIcon, Id, Order, Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
@@ -37,6 +41,13 @@ const BASE_STYLES: [BaseStyle; 5] = [BaseStyle::Calm, BaseStyle::Muted, BaseStyl
 pub struct Layers {
     /// "Features" (`layerVisibility.features`): the construct's own annotations, primer sites aside.
     pub features: bool,
+    /// "Primers": the construct's `primer_bind` features, as slim arrows in a lane of their own off
+    /// the map's backbone. On by default.
+    ///
+    /// NATIVE'S OWN ROW (Max, 2026-11-25; PARITY.md): the web app has no such layer because its map
+    /// draws no oligos. It is not [`Layers::binders`], which is the web's `layerVisibility.primers`
+    /// and governs the whole oligo lane in the ROWS.
+    pub primers: bool,
     /// "ORFs" (`layerVisibility.orfs`): open reading frames derived from the bases. Off at rest.
     pub orfs: bool,
     /// "Amino acids" (`layerVisibility.translations`): every coding feature's protein. Off at rest.
@@ -67,6 +78,7 @@ impl Default for Layers {
     fn default() -> Self {
         Layers {
             features: true,
+            primers: true,
             orfs: false,
             amino_acids: false,
             splice_scan: false,
@@ -87,6 +99,7 @@ impl Layers {
     fn switch(&self, label: &str) -> Option<bool> {
         match label {
             "Features" => Some(self.features),
+            "Primers" => Some(self.primers),
             "ORFs" => Some(self.orfs),
             "Amino acids" => Some(self.amino_acids),
             "Enzyme names" => Some(self.cut_names),
@@ -104,6 +117,7 @@ impl Layers {
     pub fn flipped(self, label: &str) -> Layers {
         match label {
             "Features" => Layers { features: !self.features, ..self },
+            "Primers" => Layers { primers: !self.primers, ..self },
             "ORFs" => Layers { orfs: !self.orfs, ..self },
             "Amino acids" => Layers { amino_acids: !self.amino_acids, ..self },
             "Splice-map hits" => Layers { splice_scan: !self.splice_scan, ..self },
@@ -118,9 +132,11 @@ impl Layers {
     }
 }
 
-/// `LAYER_ROWS`, with the web's defaults (`LAYER_DEFAULTS`) for the rows native cannot draw.
-const LAYER_ROWS: [(&str, bool); 9] = [
+/// `LAYER_ROWS`, with the web's defaults (`LAYER_DEFAULTS`) for the rows native cannot draw, and
+/// Primers, which is native's own row (Max, 2026-11-25) and sits with the other annotation layer.
+const LAYER_ROWS: [(&str, bool); 10] = [
     ("Features", true),
+    ("Primers", true),
     ("Enzyme names", true),
     ("Binders", true),
     ("Parts", true),
@@ -165,6 +181,23 @@ pub fn show(ui: &mut Ui, trigger: Rect, layers: Layers) -> Option<Outcome> {
 /// The popover for a construct carrying `splice_hits` splice-map hits: with any, an Annotations
 /// section offers to show them, counted (`ViewTab.tsx`, `countSpliceScan`).
 pub fn show_with(ui: &mut Ui, trigger: Rect, layers: Layers, splice_hits: usize) -> Option<Outcome> {
+    laid(ui, trigger, layers, splice_hits, Open::Up)
+}
+
+/// The same popover hanging DOWN from `trigger`, for the controls in the map's top right corner
+/// (`map_tools`), where there is nothing above to open into.
+pub fn show_under(ui: &mut Ui, trigger: Rect, layers: Layers, splice_hits: usize) -> Option<Outcome> {
+    laid(ui, trigger, layers, splice_hits, Open::Down)
+}
+
+/// Which way the popover opens from its button.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Open {
+    Up,
+    Down,
+}
+
+fn laid(ui: &mut Ui, trigger: Rect, layers: Layers, splice_hits: usize, open: Open) -> Option<Outcome> {
     let annotations = if splice_hits > 0 { TITLE_H + ROW_H } else { 0.0 };
     let height = 6.0
         + TITLE_H
@@ -175,7 +208,11 @@ pub fn show_with(ui: &mut Ui, trigger: Rect, layers: Layers, splice_hits: usize)
         + seg_h(LABEL_DENSITY_ROWS.len())
         + annotations
         + 6.0;
-    let rect = Rect::from_min_size(pos2(trigger.right() - WIDTH, trigger.top() - 6.0 - height), vec2(WIDTH, height));
+    let top = match open {
+        Open::Up => trigger.top() - 6.0 - height,
+        Open::Down => trigger.bottom() + 6.0,
+    };
+    let rect = Rect::from_min_size(pos2(trigger.right() - WIDTH, top), vec2(WIDTH, height));
     let mut outcome = None;
     Area::new(Id::unique("view-tab")).order(Order::Foreground).fixed_pos(rect.min).fade_in(false).show(ui.ctx(), |ui| {
         ui.set_min_size(rect.size());

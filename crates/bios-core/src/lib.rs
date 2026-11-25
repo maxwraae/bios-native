@@ -5,6 +5,7 @@
 pub mod acts;
 pub mod align;
 pub mod annealing;
+pub mod assembly;
 pub mod binders;
 pub mod build;
 pub mod coding;

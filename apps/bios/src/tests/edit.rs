@@ -45,7 +45,7 @@ fn what_is_typed_shows_at_once_and_is_saved_as_one_change_that_says_what_it_was(
     app.point(10, 10, 0.0);
     app.edit(|e| e.type_text("ggat"));
     assert_eq!(bases(&app), format!("{}GGAT{}", &before[..10], &before[10..]));
-    assert_eq!((app.cursor.caret, app.cursor.selection), (Some(14), None));
+    assert_eq!((app.ed.cursor.caret, app.ed.cursor.selection), (Some(14), None));
     // On screen and unsaved: the project still holds what it had.
     assert_eq!(on_disk(&app), before);
     assert!(app.menu_state().unsaved && app.edited.is_some());

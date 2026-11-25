@@ -44,18 +44,18 @@ impl App {
             self.dropped(files.split(',').map(std::path::PathBuf::from).collect());
         }
         match flags.panel.as_deref() {
-            Some("contents") => self.pane.side = Some(Side::Contents),
-            Some("enzymes") => self.pane.side = Some(Side::Enzymes),
-            Some("layers") => self.pane.panel = Some(bios_ui::canvas_tools::Panel::Layers),
-            Some("dial") => self.pane.panel = Some(bios_ui::canvas_tools::Panel::Enzymes),
+            Some("contents") => self.ed.pane.side = Some(Side::Contents),
+            Some("enzymes") => self.ed.pane.side = Some(Side::Enzymes),
+            Some("layers") => self.ed.pane.panel = Some(bios_ui::canvas_tools::Panel::Layers),
+            Some("dial") => self.ed.pane.panel = Some(bios_ui::canvas_tools::Panel::Enzymes),
             Some(other) => self.problem = Some(format!("--panel takes contents, enzymes, layers or dial, not {other}")),
             None => {}
         }
         let key = self.opened.as_ref().map(|o| o.id.as_str().to_string());
-        if let (Some(frame), Some((start, end)), Some(key)) = (flags.translate, self.cursor.selection, key) {
+        if let (Some(frame), Some((start, end)), Some(key)) = (flags.translate, self.ed.cursor.selection, key) {
             let forward = !frame.starts_with('-');
             match frame.trim_start_matches(['+', '-']).parse::<u8>() {
-                Ok(n @ 1..=3) => self.pane.add_translation(&key, bios_layout::translations::Translation { start, end, forward, frame: n - 1 }),
+                Ok(n @ 1..=3) => self.ed.pane.add_translation(&key, bios_layout::translations::Translation { start, end, forward, frame: n - 1 }),
                 _ => self.problem = Some(format!("--translate takes +1, +2, +3, -1, -2 or -3, not {frame}")),
             }
         }
@@ -63,9 +63,9 @@ impl App {
             // A name that cuts is put on the map, as a press on its row does; anything else is typed.
             match bios_core::enzymes::get_enzyme(&query) {
                 Some(e) if query == e.name => {
-                    self.pane.toggle_shown(e.name);
+                    self.ed.pane.toggle_shown(e.name);
                 }
-                _ => self.pane.enzymes_panel.query = query,
+                _ => self.ed.pane.enzymes_panel.query = query,
             }
         }
     }
@@ -89,7 +89,7 @@ impl App {
 
     /// Draws the side panel that is open, standing in `pane` down to the tool row's foot.
     pub(crate) fn side_panels(&mut self, ui: &mut egui::Ui, pane: Rect, tools_bottom: f32) {
-        let Some(side) = self.pane.side else {
+        let Some(side) = self.ed.pane.side else {
             return;
         };
         let rect = side_panel::place(pane, tools_bottom);
@@ -99,8 +99,8 @@ impl App {
         };
         match side {
             Side::Enzymes => {
-                let shown = self.pane.shown_enzymes.clone();
-                let outcome = self.pane.enzymes_panel.show(ui, rect, revision, c, &shown);
+                let shown = self.ed.pane.shown_enzymes.clone();
+                let outcome = self.ed.pane.enzymes_panel.show(ui, rect, revision, c, &shown);
                 // Where an enzyme just put on the map first lands: its first recognition site.
                 let first = |name: &str| {
                     let site = find_cut_sites(&c.sequence, &[name], c.circular).into_iter().next()?;
@@ -108,10 +108,10 @@ impl App {
                     Some((site.recognition_start, site.recognition_start + length - 1))
                 };
                 match outcome {
-                    Some(EnzymesOutcome::Close) => self.pane.side = None,
+                    Some(EnzymesOutcome::Close) => self.ed.pane.side = None,
                     Some(EnzymesOutcome::Toggle(name)) => {
                         let span = first(&name);
-                        if self.pane.toggle_shown(&name)
+                        if self.ed.pane.toggle_shown(&name)
                             && let Some((start, end)) = span
                         {
                             self.select_span(start, end);
@@ -122,17 +122,17 @@ impl App {
                 }
             }
             Side::Contents => {
-                let outcome = self.pane.contents_panel.show(
+                let outcome = self.ed.pane.contents_panel.show(
                     ui,
                     rect,
                     c,
-                    self.cursor.selection,
-                    self.pane.layers,
+                    self.ed.cursor.selection,
+                    self.ed.pane.layers,
                     &bios_ui::contents_panel::listed_parts(c),
                     &self.binder_rows(),
                 );
                 match outcome {
-                    Some(ContentsOutcome::Close) => self.pane.side = None,
+                    Some(ContentsOutcome::Close) => self.ed.pane.side = None,
                     Some(ContentsOutcome::Layers(layers)) => self.set_layers(layers),
                     Some(ContentsOutcome::Select(start, end)) => self.select_span(start, end),
                     Some(ContentsOutcome::Feature(index)) => {
@@ -155,8 +155,9 @@ impl App {
         let Some(o) = &self.opened else {
             return Vec::new();
         };
-        let sites = self.oligos.sites();
-        self.oligos
+        let sites = self.ed.oligos.sites();
+        self.ed
+            .oligos
             .binders_of(&o.id)
             .map(|b| {
                 let mine: Vec<_> = sites.iter().filter(|s| s.binder_id == b.id).collect();
@@ -175,12 +176,13 @@ impl App {
     /// The open plasmid's floating translations the selection overlaps, as the menu offers to remove
     /// them: their index and `+2 1–30`.
     pub(crate) fn translations_here(&self) -> Vec<(usize, String)> {
-        let (Some(o), Some((start, end))) = (&self.opened, self.cursor.selection) else {
+        let (Some(o), Some((start, end))) = (&self.opened, self.ed.cursor.selection) else {
             return Vec::new();
         };
         let (lo, hi) = if end < start { (0, usize::MAX) } else { (start, end) };
         let thousands = bios_ui::selection_readout::thousands;
-        self.pane
+        self.ed
+            .pane
             .translations_of(o.id.as_str())
             .iter()
             .enumerate()
@@ -191,8 +193,8 @@ impl App {
 
     /// Changes what is shown. What is drawn is laid out again, since a layer can change it.
     pub(crate) fn set_layers(&mut self, layers: Layers) {
-        if layers != self.pane.layers {
-            self.pane.layers = layers;
+        if layers != self.ed.pane.layers {
+            self.ed.pane.layers = layers;
             self.revision += 1;
         }
     }
@@ -205,7 +207,7 @@ impl App {
         };
         let last = opened.construct.len().saturating_sub(1);
         opened.editing.select(start.min(last), end.min(last));
-        self.anchor = None;
+        self.ed.anchor = None;
         self.show_editing(None, true);
     }
 }

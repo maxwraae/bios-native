@@ -8,6 +8,7 @@ use std::path::Path;
 
 use bios_project::ConstructId;
 use bios_project::window::{self, Front, Selection, ShownPlasmid, ShownProject, Tab};
+use bios_ui::sidebar::Place;
 use craft_dialogs::{Message, MessageButtons, MessageLevel};
 
 use crate::prefs::OpenTabs;
@@ -20,11 +21,15 @@ impl App {
 
     /// Remembers the open tabs and the one in front, when they changed.
     pub(crate) fn remember_tabs(&mut self) {
+        // The main window's tabs are the ones that come back.
+        if self.here != egui::ViewportId::ROOT {
+            return;
+        }
         let Some(root) = self.session.as_ref().map(|s| s.project().root().to_path_buf()) else {
             return;
         };
         let now = OpenTabs {
-            tabs: self.tabs.iter().map(|t| t.as_str().to_string()).collect(),
+            tabs: self.ed.tabs.iter().map(|t| t.as_str().to_string()).collect(),
             front: self.opened.as_ref().map(|o| o.id.as_str().to_string()),
         };
         // Asked every frame: the key costs a look at the disk, so only a change goes on.
@@ -68,7 +73,7 @@ impl App {
             project: Some(ShownProject { path: project.root().to_path_buf(), name: project.name().to_string() }),
             place: self.place.label().to_lowercase(),
             plasmid,
-            tabs: self.tabs.iter().filter_map(path_of).map(|(path, name)| Tab { path, name }).collect(),
+            tabs: self.ed.tabs.iter().filter_map(path_of).map(|(path, name)| Tab { path, name }).collect(),
             selection,
         }
     }
@@ -88,6 +93,32 @@ impl App {
         if window::publish(&file, &now).is_ok() {
             self.front_seen = Some(now);
         }
+    }
+
+    /// Shows what an agent asked for with `show_in_bios`: the project, the plasmid in front and
+    /// the bases selected. The window is then brought forward, since the person asked to see it.
+    pub(crate) fn take_show(&mut self, ctx: &egui::Context) {
+        let Some(file) = self.recents.file().map(window::file_beside) else {
+            return;
+        };
+        let Some(show) = window::take_show(&file) else {
+            return;
+        };
+        let wanted = show.project.canonicalize().unwrap_or_else(|_| show.project.clone());
+        if self.tabs_key().as_deref() != Some(wanted.display().to_string().as_str()) {
+            self.open_project(&wanted);
+        }
+        if self.session.is_none() {
+            return;
+        }
+        if let Some(id) = show.plasmid.as_deref().and_then(ConstructId::parse) {
+            self.go_to_place(Place::Edit);
+            let span = show.selection.map(|s| (s.start.saturating_sub(1), s.end.saturating_sub(1)));
+            self.go_to(&id, span);
+        }
+        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+        ctx.request_repaint();
     }
 
     /// The window is closing: nothing is in front any more.
@@ -111,7 +142,7 @@ impl App {
             return;
         }
         let front = saved.front.as_deref().and_then(ConstructId::parse).filter(|f| here.contains(f)).or_else(|| here.last().cloned());
-        self.tabs = here;
+        self.ed.tabs = here;
         if let Some(front) = front {
             self.open_construct(&front);
         }
@@ -130,7 +161,9 @@ impl App {
         }
         self.remember_tabs();
         let saved = self.save();
-        let unsaved = !saved || self.opened.as_ref().is_some_and(|o| o.editing.dirty_since().is_some());
+        let unsaved = !saved
+            || self.opened.as_ref().is_some_and(|o| o.editing.dirty_since().is_some())
+            || self.copies.values().any(|o| o.editing.dirty_since().is_some());
         if !unsaved {
             return;
         }

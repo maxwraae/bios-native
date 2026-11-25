@@ -17,7 +17,6 @@ use bios_core::{Construct, Feature, Strand, seq};
 use bios_layout::cuts::{self, Cut, RowCut};
 use bios_layout::interactions::{self as edge_layout, Anchor, EdgePiece, EdgeSpan, RowEdge};
 use bios_layout::overview::viewport::Viewport;
-use bios_layout::probe::{self, Caption};
 use bios_layout::row_features::{self as annotations, CellKind, End, Kind, Piece, RowFeature, RowPieces, Seg};
 use bios_layout::rows::{self as layout, Lanes, Metrics, Row, RowPlan, StrandLanes, Tracks, track};
 use bios_layout::strip;
@@ -47,6 +46,17 @@ pub enum Oligo {
     Binder(usize),
     /// Which of [`Options::hits`] this is.
     Probe(usize),
+    /// Which of [`Options::found`] this is.
+    Found(usize),
+}
+
+/// One place an Exact Find landed: its first and last base, 0-based (an end before the start
+/// runs through the origin), and its strand.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Found {
+    pub start: usize,
+    pub end: usize,
+    pub forward: bool,
 }
 
 /// A feature or a primer as the rows draw it.
@@ -66,6 +76,8 @@ struct Shown {
     bases: Option<String>,
     /// An aligned oligo's runs, which place its tail and inserts.
     runs: Option<Vec<AlignRun>>,
+    /// The colours it is drawn in, when it rides the primer lane.
+    ribbon: theme::RibbonInk,
 }
 
 impl Shown {
@@ -99,8 +111,6 @@ struct RowContent {
     inter: Vec<EdgePiece>,
     inter_lanes: u32,
     lanes: Lanes,
-    /// The captions of Find's alignments that start in this row.
-    captions: Vec<Caption>,
 }
 
 /// The rows of one construct at one width. Rebuilt only when either changes.
@@ -172,6 +182,7 @@ fn orfs_of(c: &Construct) -> Vec<Shown> {
             directional: true,
             locations: None,
             bases: None,
+            ribbon: theme::PRIMER_RIBBON,
         })
         .collect()
 }
@@ -322,6 +333,7 @@ fn shown(index: usize, f: &Feature, sequence: &str) -> Shown {
         runs: None,
         oligo: None,
         name,
+        ribbon: theme::PRIMER_RIBBON,
     }
 }
 
@@ -340,6 +352,7 @@ fn shown_binder(index: usize, s: &BinderSite) -> Shown {
         locations: None,
         bases: Some(annealed_bases(s).to_string()),
         runs: None,
+        ribbon: theme::PRIMER_RIBBON,
     }
 }
 
@@ -360,6 +373,27 @@ fn shown_probe(index: usize, h: &AlignHit, c: &Construct) -> Shown {
         locations: None,
         bases: Some(template_aligned_bases(&runs)),
         runs: Some(runs),
+        ribbon: theme::PRIMER_RIBBON,
+    }
+}
+
+/// One place an Exact Find landed, as the primer lane draws it: its own bases 5'→3' over its
+/// footprint, in the found colours. Through the origin its end is before its start.
+fn shown_found(index: usize, m: &Found, c: &Construct) -> Shown {
+    let top = crate::selection_readout::selected_bases(c, m.start, m.end);
+    Shown {
+        index: usize::MAX,
+        oligo: Some(Oligo::Found(index)),
+        name: "found".to_string(),
+        color: theme::FOUND_RIBBON.edge,
+        start: m.start as i64,
+        end: m.end as i64,
+        forward: m.forward,
+        directional: true,
+        locations: None,
+        bases: Some(if m.forward { top } else { seq::revcomp(&top) }),
+        runs: None,
+        ribbon: theme::FOUND_RIBBON,
     }
 }
 
@@ -524,13 +558,8 @@ impl Plan {
             primers.extend(visible().filter(|(_, f)| is_primer(f) && !is_part(f)).map(|(i, f)| shown(i, f, &c.sequence)));
             primers.extend(options.binders.iter().enumerate().map(|(i, s)| shown_binder(i, s)));
             primers.extend(options.hits.iter().take(DRAWN_LIMIT).enumerate().map(|(i, h)| shown_probe(i, h, c)));
+            primers.extend(options.found.iter().take(DRAWN_LIMIT).enumerate().map(|(i, m)| shown_found(i, m, c)));
         }
-        // Find's captions are bucketed by dividing too; the strip goes without them, as it does there.
-        let mut captions = if strip {
-            std::collections::BTreeMap::new()
-        } else {
-            probe::probe_by_row(options.hits, c.len(), c.circular, usize::try_from(metrics.bps_per_row).unwrap_or(0))
-        };
         // Parts straight off the record, in a lane of their own (`SequenceRows.tsx` 498-517).
         let show_parts = layers.parts;
         let parts: Vec<Shown> =
@@ -586,9 +615,8 @@ impl Plan {
                 content.inter_lanes = lanes as u32;
             }
         }
-        for (index, (row, (cuts, name_lanes))) in content.iter_mut().zip(cut_rows(&sites, c, &metrics, &rows, strip)).enumerate() {
+        for (row, (cuts, name_lanes)) in content.iter_mut().zip(cut_rows(&sites, c, &metrics, &rows, strip)) {
             row.cuts = cuts;
-            row.captions = captions.remove(&index).unwrap_or_default();
             let inter = row.inter_lanes;
             let [above, below] = &row.features;
             let [primers_above, primers_below] = &row.primers;
@@ -605,7 +633,6 @@ impl Plan {
                     translations: u32::from(!row.residues.is_empty()),
                     ..strand_lanes(below, primers_below, parts_below, orfs_below)
                 },
-                probe: row.captions.len() as u32,
             };
         }
         let plan = layout::plan_rows(&rows, |row| content.get(row.index).map_or_else(Lanes::default, |r| r.lanes), tracks);
@@ -694,6 +721,9 @@ pub enum Gesture {
 pub struct Seen {
     /// The topmost piece of the selection's highlight on screen.
     pub selection: Option<Rect>,
+    /// The middle of the clear air between the row that piece is in and the row above it, where
+    /// the selection's pill stands without covering bases or lanes.
+    pub selection_gap: Option<f32>,
     /// The feature or primer bar under the pointer: which of the construct's features, and its
     /// box on screen.
     pub bar: Option<(usize, Rect)>,
@@ -733,6 +763,7 @@ pub fn seen(ctx: &egui::Context) -> Seen {
     let strip = strip_seen(ctx);
     Seen {
         selection: rows.selection,
+        selection_gap: rows.selection_gap,
         bar: rows.bar.or(strip.bar),
         cut: rows.cut.or(strip.cut),
         cut_distance: rows.cut_distance.or(strip.cut_distance),
@@ -761,14 +792,14 @@ fn center_on(ui: &mut egui::Ui, plan: &Plan, viewport: Rect, base: usize) {
 
 /// The rows zoomed out past the letters: the base in the middle of `viewport` to hand the map, with
 /// the zoom put back to the default width.
-fn hand_back(ui: &egui::Ui, plan: &Plan, viewport: Rect) -> Option<Gesture> {
+fn hand_back(ui: &egui::Ui, plan: &Plan, viewport: Rect, key: &str) -> Option<Gesture> {
     if !layout::rows_hand_back(plan.metrics.char_width) || plan.rows.is_empty() {
         return None;
     }
     let index = layout::row_at(&plan.plan, f64::from(viewport.center().y));
     let start = plan.rows.get(index).map_or(0, |r| r.start);
     let base = (start + plan.metrics.bps_per_row / 2).clamp(0, plan.rows.last().map_or(0, |r| r.end));
-    ui.data_mut(|d| d.insert_temp(zoom_id(), layout::DEFAULT_CHAR_WIDTH));
+    ui.data_mut(|d| d.insert_temp(zoom_id(key), layout::DEFAULT_CHAR_WIDTH));
     ui.ctx().request_repaint();
     Some(Gesture::ZoomedOut { base: usize::try_from(base).unwrap_or(0) })
 }
@@ -813,14 +844,15 @@ fn pending_id() -> egui::Id {
     egui::Id::unique("bios-rows-pending")
 }
 
-/// The width a base is asked for, as the rows' zoom left it.
-fn zoom_id() -> egui::Id {
-    egui::Id::unique("bios-rows-zoom")
+/// The width a base is asked for, as the rows' zoom left it: one per plasmid, so zooming one
+/// leaves every other where it was.
+fn zoom_id(key: &str) -> egui::Id {
+    egui::Id::unique(("bios-rows-zoom", key))
 }
 
 /// The base a zoom is held about, and how far down the viewport the pointer was.
-fn anchor_id() -> egui::Id {
-    egui::Id::unique("bios-rows-zoom-anchor")
+fn anchor_id(key: &str) -> egui::Id {
+    egui::Id::unique(("bios-rows-zoom-anchor", key))
 }
 
 /// How far either side of a cut's hairline still counts as pointing at it (`CutHoverCard.tsx`).
@@ -833,6 +865,8 @@ const BLINK: f64 = 1.06;
 /// What the editor pane asks of the rows beyond the construct itself.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Options<'a> {
+    /// Which plasmid this is: its zoom and its scroll are its own.
+    pub key: &'a str,
     /// Room kept under the last row so it can scroll out from under the floating tool row
     /// (`.seq-rows-content { padding-bottom }`).
     pub run_off: f32,
@@ -847,7 +881,9 @@ pub struct Options<'a> {
     pub binders: &'a [BinderSite],
     /// Find's alignments, best first: the first [`DRAWN_LIMIT`] are drawn, with their captions.
     pub hits: &'a [AlignHit],
-    /// Changes whenever `binders` or `hits` do, so the rows know to lay out again.
+    /// Where an Exact Find landed, drawn as ribbons in the found colours while the bar is open.
+    pub found: &'a [Found],
+    /// Changes whenever `binders`, `hits` or `found` do, so the rows know to lay out again.
     pub oligo_key: u64,
     /// The translations asked for from the selection's menu, floating over the bases.
     pub translations: &'a [Translation],
@@ -875,13 +911,88 @@ pub fn show(ui: &mut egui::Ui, c: &Construct, revision: u64, cache: &mut Option<
     show_with(ui, c, revision, cache, cursor, Options::default())
 }
 
+/// What a picture of the rows came out as: the bases it holds, 0-based and inclusive, and how
+/// tall those rows actually are, so a picture can be cut down to them.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Drawn {
+    pub from: i64,
+    pub to: i64,
+    pub height: f64,
+}
+
+/// The rows of `c` drawn into `rect` as a PICTURE rather than a pane: the whole rows that hold
+/// bases `from`..`to`, laid out at `rect`'s width, from the top of `rect` down. Nothing answers
+/// the pointer, nothing is selected and nothing scrolls, so only as many rows as `rect` is tall
+/// enough to hold are drawn, and the answer says which bases those were.
+///
+/// The first row is always drawn, however short the rectangle: a picture with nothing in it says
+/// less than a clipped one.
+pub fn draw_rows(painter: &Painter, rect: Rect, c: &Construct, from: i64, to: i64) -> Drawn {
+    let options = Options::default();
+    let plan = Plan::build(c, rect.width(), 0, default_cut_sites(c), &options, layout::DEFAULT_CHAR_WIDTH, None);
+    let last = plan.rows.len().saturating_sub(1);
+    let row_of = |bp: i64| usize::try_from(layout::row_of_base(bp.max(0), plan.metrics.bps_per_row.max(1))).unwrap_or(0).min(last);
+    let first = row_of(from);
+    // A stretch running through the origin cannot be one run of rows, so it runs to the end.
+    let wanted = if to < from { last } else { row_of(to).max(first) };
+    let Some(&top0) = plan.plan.tops.get(first) else {
+        return Drawn { from: 0, to: 0, height: 0.0 };
+    };
+    let cursor = Cursor::default();
+    let on_bar = std::cell::Cell::new(None);
+    let on_end = std::cell::Cell::new(None);
+    let seen = std::cell::RefCell::new(Seen::default());
+    let left = rect.left() + (plan.metrics.margin_width / 2.0) as f32;
+    // In a pane the first row sits at the very top and the coordinate over a fiftieth in it is
+    // clipped by the scroller; a picture has no scroller, so the first row gets the same air above
+    // it that every row has below it, and the number reads.
+    let air = track::ROW_GAP / 2.0;
+    // How tall the rows are measured in, which has to be the layout's own arithmetic: rounded to
+    // the screen's units first, a row that fits exactly comes out a hair too tall and is dropped.
+    let room = f64::from(rect.height());
+    let mut drawn = first;
+    for index in first..=wanted {
+        let (Some(&top), Some(&next)) = (plan.plan.tops.get(index), plan.plan.tops.get(index + 1)) else {
+            break;
+        };
+        if index > first && air + (next - top0) > room {
+            break;
+        }
+        let y = rect.top() + (air + top - top0) as f32;
+        let sheet = Sheet {
+            painter,
+            origin: pos2(left, y),
+            plan: &plan,
+            c,
+            index,
+            height: next - top,
+            cursor: &cursor,
+            caret_on: false,
+            base_style: options.layers.base_style,
+            lit: None,
+            press: None,
+            on_bar: &on_bar,
+            on_end: &on_end,
+            hover: None,
+            wash: None,
+            hot_cut: None,
+            seen: &seen,
+        };
+        sheet.draw();
+        drawn = index;
+    }
+    let bases = |index: usize| plan.rows.get(index).copied().unwrap_or(Row { index, start: 0, end: 0 });
+    let bottom = plan.plan.tops.get(drawn + 1).copied().unwrap_or(top0);
+    Drawn { from: bases(first).start, to: bases(drawn).end.max(bases(first).start), height: air + (bottom - top0) }
+}
+
 pub fn show_with(ui: &mut egui::Ui, c: &Construct, revision: u64, cache: &mut Option<Plan>, cursor: &Cursor, options: Options) -> Option<Gesture> {
     let width = ui.available_width();
     let stale_sites = |p: &Plan| options.sites.is_some_and(|s| s != p.sites.as_slice());
     let cut_names = options.layers.cut_names;
     let tracks = tracks_of(&options);
     let stale_oligos = |p: &Plan| p.primers_shown != options.layers.binders || p.oligo_key != options.oligo_key;
-    let asked = ui.data(|d| d.get_temp::<f64>(zoom_id())).unwrap_or(layout::DEFAULT_CHAR_WIDTH);
+    let asked = ui.data(|d| d.get_temp::<f64>(zoom_id(options.key))).unwrap_or(layout::DEFAULT_CHAR_WIDTH);
     if cache.as_ref().is_none_or(|p| {
         p.width != width
             || p.asked != asked
@@ -909,7 +1020,7 @@ pub fn show_with(ui: &mut egui::Ui, c: &Construct, revision: u64, cache: &mut Op
         into < half
     });
     let mut gesture = None;
-    egui::ScrollArea::vertical().auto_shrink([false, false]).id_salt("rows").show_viewport(ui, |ui, viewport| {
+    egui::ScrollArea::vertical().auto_shrink([false, false]).id_salt(("rows", options.key)).show_viewport(ui, |ui, viewport| {
         ui.set_width(width);
         // The first row starts at the top of the sheet, with no air above it: the web places row 0 at
         // `top: 0` of `.seq-rows-content`, so the number over a fiftieth in it stands above the
@@ -1009,18 +1120,18 @@ pub fn show_with(ui: &mut egui::Ui, c: &Construct, revision: u64, cache: &mut Op
                     let row = plan.rows.get(layout::row_at(&plan.plan, f64::from(at.y - origin.y)));
                     let bp = row.and_then(|r| layout::base_at_x(f64::from(at.x - left), *r, plan.metrics.char_width).or(Some(r.start)));
                     if let Some(bp) = bp {
-                        ui.data_mut(|d| d.insert_temp(anchor_id(), (bp, at.y - ui.clip_rect().top())));
+                        ui.data_mut(|d| d.insert_temp(anchor_id(options.key), (bp, at.y - ui.clip_rect().top())));
                     }
-                    ui.data_mut(|d| d.insert_temp(zoom_id(), next));
+                    ui.data_mut(|d| d.insert_temp(zoom_id(options.key), next));
                     ui.ctx().request_repaint();
                 }
             }
         }
         // After a zoom has laid the rows out again, the anchored base goes back under the pointer.
-        if let Some((bp, y)) = ui.data(|d| d.get_temp::<(i64, f32)>(anchor_id()))
+        if let Some((bp, y)) = ui.data(|d| d.get_temp::<(i64, f32)>(anchor_id(options.key)))
             && (plan.metrics.char_width - asked).abs() < 1.0
         {
-            ui.data_mut(|d| d.remove::<(i64, f32)>(anchor_id()));
+            ui.data_mut(|d| d.remove::<(i64, f32)>(anchor_id(options.key)));
             let index = usize::try_from(layout::row_of_base(bp, plan.metrics.bps_per_row)).unwrap_or(0).min(plan.rows.len().saturating_sub(1));
             if let Some(&top) = plan.plan.tops.get(index) {
                 let want = top as f32 - y;
@@ -1031,7 +1142,7 @@ pub fn show_with(ui: &mut egui::Ui, c: &Construct, revision: u64, cache: &mut Op
         // of the view, and come back up to a readable width, so the next hand-over does not hand
         // straight back (`onZoomedOut`). Reported after the fact rather than refusing the zoom, so
         // the gesture that takes you out is the one you were already making.
-        gesture = hand_back(ui, plan, viewport).or(gesture);
+        gesture = hand_back(ui, plan, viewport, options.key).or(gesture);
         if let Some(base) = options.center_on {
             center_on(ui, plan, viewport, base);
         }
@@ -1403,6 +1514,7 @@ impl Sheet<'_> {
             let mut seen = self.seen.borrow_mut();
             if seen.selection.is_none_or(|was| rect.top() < was.top()) && rect.bottom() > self.painter.clip_rect().top() {
                 seen.selection = Some(rect);
+                seen.selection_gap = Some(self.at(0.0, -track::ROW_GAP / 2.0).y);
             }
         }
         if self.plan.tracks.axis {
@@ -1422,7 +1534,8 @@ impl Sheet<'_> {
         self.features(&self.plan.features, Kind::Feature, features_above, above_top);
         self.primers(primers_above, above_top + features_above.height, true);
         self.strands(row, off);
-        // Below: primers, features, parts, ORFs, the amino acids, then Find's captions.
+        // Below: primers, features, parts, ORFs, then the amino acids. What each of Find's hits is
+        // is said in the Find bar, not on the rows (PARITY.md).
         let below_top = off + bands.lanes_top;
         self.primers(primers_below, below_top, false);
         self.features(&self.plan.features, Kind::Feature, features_below, below_top + primers_below.height);
@@ -1432,8 +1545,6 @@ impl Sheet<'_> {
         self.orfs(orfs_below, after_parts);
         let after_orfs = after_parts + orfs_below.height;
         self.residues(&content.residues, after_orfs);
-        let after_residues = after_orfs + if content.residues.is_empty() { 0.0 } else { track::TRANSLATIONS };
-        self.captions(&content.captions, after_residues);
         self.edges(row, &pieces);
         self.cuts(row, &content.cuts, off);
         // The ribbons take the very top of the row, above the enzyme names: a relationship spans
@@ -1724,25 +1835,25 @@ impl Sheet<'_> {
                 // Level with whatever the 5' end sits on: the tail, if there is one.
                 let level = if p.cells.iter().any(|c| c.kind == CellKind::Tail) { half_y } else { y };
                 let font = theme::sans_weight(10.0, Weight::Semibold);
-                named = named.union(self.text((x, level + annotations::LETTER_BASELINE), anchor, &f.name, font, theme::PRIMER_INK));
+                named = named.union(self.text((x, level + annotations::LETTER_BASELINE), anchor, &f.name, font, f.ribbon.ink));
             }
             self.claim_primer(ribbon, named, f);
             let chains = annotations::primer_chains(p, cw, y, half_y);
             for (i, segs) in chains.iter().enumerate() {
                 let left = if i == 0 { ends.left } else { End::Flat };
                 let right = if i + 1 == chains.len() { ends.right } else { End::Flat };
-                self.ribbon(segs, left, right);
+                self.ribbon(segs, left, right, &f.ribbon);
             }
             self.primer_handles(p, f, y);
-            self.primer_breaks(p, y, half_y, above);
-            self.primer_inserts(p, y, above);
-            self.primer_letters(p, y, half_y);
+            self.primer_breaks(p, y, half_y, above, &f.ribbon);
+            self.primer_inserts(p, y, above, &f.ribbon);
+            self.primer_letters(p, y, half_y, &f.ribbon);
         }
     }
 
     /// One chain of ribbon, filled and outlined. The fill is two bands meeting on the centre line,
     /// so a chevron cut into an end is filled as drawn; the outline goes over its edges.
-    fn ribbon(&self, segs: &[Seg], left: End, right: End) {
+    fn ribbon(&self, segs: &[Seg], left: End, right: End, tone: &theme::RibbonInk) {
         let h = annotations::PRIMER_BAR;
         let reach = |end: End| match end {
             End::Notch => -annotations::CHEV,
@@ -1756,7 +1867,7 @@ impl Sheet<'_> {
             let corners = [(s.x0, s.y), (s.x1, s.y), (mid_right, s.y + h / 2.0), (s.x1, s.y + h), (s.x0, s.y + h), (mid_left, s.y + h / 2.0)];
             let base = fill.vertices.len() as u32;
             for (x, y) in corners {
-                fill.colored_vertex(self.at(x, y), theme::PRIMER_FILL);
+                fill.colored_vertex(self.at(x, y), tone.fill);
             }
             for [a, b, c] in [[0, 1, 2], [0, 2, 5], [5, 2, 3], [5, 3, 4]] {
                 fill.add_triangle(base + a, base + b, base + c);
@@ -1764,30 +1875,30 @@ impl Sheet<'_> {
         }
         self.painter.add(Shape::mesh(fill));
         let outline: Vec<Pos2> = annotations::chain_path(segs, h, left, right).into_iter().map(|(x, y)| self.at(x, y)).collect();
-        self.painter.add(Shape::closed_line(outline, Stroke::new(1.5, theme::PRIMER_EDGE)));
+        self.painter.add(Shape::closed_line(outline, Stroke::new(1.5, tone.edge)));
     }
 
     /// Where a primer leaves its template: a deletion is one line across the gap, and a changed
     /// base hangs half a line off it on two legs, in the deeper shade.
-    fn primer_breaks(&self, p: &Piece, y: f64, half_y: f64, above: bool) {
+    fn primer_breaks(&self, p: &Piece, y: f64, half_y: f64, above: bool, tone: &theme::RibbonInk) {
         let cw = self.plan.metrics.char_width;
         let h = annotations::PRIMER_BAR;
-        let edge = Stroke::new(1.5, theme::PRIMER_EDGE);
+        let edge = Stroke::new(1.5, tone.edge);
         let (leg_from, leg_to) = if above { (y + h, half_y) } else { (y, half_y + h) };
         for run in annotations::runs_of(&p.cells) {
             let (x0, x1) = (annotations::col_x(p, run.from, cw), annotations::col_x(p, run.to, cw) + cw);
             match run.kind {
-                CellKind::Gap => self.line((x0, y + h / 2.0), (x1, y + h / 2.0), 1.5, theme::PRIMER_EDGE),
+                CellKind::Gap => self.line((x0, y + h / 2.0), (x1, y + h / 2.0), 1.5, tone.edge),
                 CellKind::Change => {
                     let rect = Rect::from_min_max(self.at(x0, half_y), self.at(x1, half_y + h));
-                    self.painter.rect(rect, 0.0, theme::PRIMER_LIFT, edge, egui::StrokeKind::Middle);
-                    self.line((x0, leg_from), (x0, leg_to), 1.5, theme::PRIMER_EDGE);
-                    self.line((x1, leg_from), (x1, leg_to), 1.5, theme::PRIMER_EDGE);
+                    self.painter.rect(rect, 0.0, tone.lift, edge, egui::StrokeKind::Middle);
+                    self.line((x0, leg_from), (x0, leg_to), 1.5, tone.edge);
+                    self.line((x1, leg_from), (x1, leg_to), 1.5, tone.edge);
                 }
                 // The run that does not anneal, laid over the outline in the deeper shade.
                 CellKind::Tail => {
                     let rect = Rect::from_min_max(self.at(x0, half_y), self.at(x1, half_y + h));
-                    self.painter.rect(rect, 0.0, theme::PRIMER_LIFT, edge, egui::StrokeKind::Middle);
+                    self.painter.rect(rect, 0.0, tone.lift, edge, egui::StrokeKind::Middle);
                 }
                 CellKind::Paired => {}
             }
@@ -1828,11 +1939,11 @@ impl Sheet<'_> {
 
     /// Bases an aligned oligo carries that the template has no column for: a whole line off,
     /// narrowing to the one junction they open, with a line through the ribbon there.
-    fn primer_inserts(&self, p: &Piece, y: f64, above: bool) {
+    fn primer_inserts(&self, p: &Piece, y: f64, above: bool, tone: &theme::RibbonInk) {
         let cw = self.plan.metrics.char_width;
         let h = annotations::PRIMER_BAR;
         let full_y = if above { y - track::PRIMERS } else { y + track::PRIMERS };
-        let edge = Stroke::new(1.5, theme::PRIMER_EDGE);
+        let edge = Stroke::new(1.5, tone.edge);
         let print = layout::regime_for(cw).primer_bases;
         for ins in &p.inserts {
             let jx = annotations::col_x(p, ins.edge, cw);
@@ -1843,32 +1954,21 @@ impl Sheet<'_> {
             let apex = if above { y } else { y + h };
             let thru = if above { y + h } else { y };
             let funnel = vec![self.at(jx - w / 2.0, near), self.at(jx, apex), self.at(jx + w / 2.0, near)];
-            self.painter.add(Shape::convex_polygon(funnel, theme::PRIMER_LIFT, edge));
+            self.painter.add(Shape::convex_polygon(funnel, tone.lift, edge));
             let rect = Rect::from_min_max(self.at(jx - w / 2.0, full_y), self.at(jx + w / 2.0, full_y + h));
-            self.painter.rect(rect, 0.0, theme::PRIMER_LIFT, edge, egui::StrokeKind::Middle);
-            self.line((jx, apex), (jx, thru), 1.5, theme::PRIMER_EDGE);
+            self.painter.rect(rect, 0.0, tone.lift, edge, egui::StrokeKind::Middle);
+            self.line((jx, apex), (jx, thru), 1.5, tone.edge);
             if print {
                 for (k, ch) in label.chars().enumerate() {
                     let x = jx - w / 2.0 + k as f64 * cw + cw / 2.0;
                     let font = theme::mono_weight(11.0, Weight::Semibold);
-                    self.text((x, full_y + annotations::LETTER_BASELINE), Align::Center, &ch.to_string(), font, theme::PRIMER_LIFT_INK);
+                    self.text((x, full_y + annotations::LETTER_BASELINE), Align::Center, &ch.to_string(), font, tone.lift_ink);
                 }
             }
         }
     }
 
-    /// Each of Find's alignments that starts in this row, described in a sentence beside it, one
-    /// lane each below everything the strands stack (`RowProbe.tsx`).
-    fn captions(&self, captions: &[Caption], top: f64) {
-        let cw = self.plan.metrics.char_width;
-        for (band, caption) in captions.iter().enumerate() {
-            let x = probe::caption_x(caption.col as f64 * cw, &caption.text, self.plan.metrics.content_width);
-            let baseline = top + band as f64 * track::PROBE + probe::CAPTION_BASELINE;
-            self.text((x, baseline), Align::Min, &caption.text, theme::sans(10.0), theme::MUTED);
-        }
-    }
-
-    fn primer_letters(&self, p: &Piece, y: f64, half_y: f64) {
+    fn primer_letters(&self, p: &Piece, y: f64, half_y: f64, tone: &theme::RibbonInk) {
         let cw = self.plan.metrics.char_width;
         if !layout::regime_for(cw).primer_bases {
             return;
@@ -1876,8 +1976,8 @@ impl Sheet<'_> {
         for cell in &p.cells {
             let Some(ch) = cell.ch else { continue };
             let (top, font, color) = match cell.kind {
-                CellKind::Paired => (y, theme::mono_weight(11.0, Weight::Medium), theme::PRIMER_INK),
-                CellKind::Change | CellKind::Tail => (half_y, theme::mono_weight(11.0, Weight::Semibold), theme::PRIMER_LIFT_INK),
+                CellKind::Paired => (y, theme::mono_weight(11.0, Weight::Medium), tone.ink),
+                CellKind::Change | CellKind::Tail => (half_y, theme::mono_weight(11.0, Weight::Semibold), tone.lift_ink),
                 CellKind::Gap => continue,
             };
             let x = annotations::col_x(p, cell.bp, cw) + cw / 2.0;
@@ -1942,7 +2042,28 @@ fn over_rows(ui: &egui::Ui, at: Pos2) -> bool {
 mod tests {
     use bios_core::genbank;
 
-    use super::{humanize_name, is_directional, is_hidden, is_primer, primer_bases};
+    use super::{Found, Oligo, anchor_id, humanize_name, is_directional, is_hidden, is_primer, primer_bases, shown_found, zoom_id};
+
+    #[test]
+    fn what_exact_found_rides_the_primer_lane_in_its_own_colours_and_reads_5_to_3() {
+        let c = genbank::read(include_str!("../../bios-core/tests/fixtures/pUC19.gb")).unwrap();
+        let top = c.sequence.get(1500..1525).unwrap().to_string();
+        let forward = shown_found(0, &Found { start: 1500, end: 1524, forward: true }, &c);
+        assert_eq!(forward.bases.as_deref(), Some(top.as_str()));
+        assert_eq!(forward.ribbon, crate::theme::FOUND_RIBBON);
+        assert_eq!(forward.oligo, Some(Oligo::Found(0)));
+        let minus = shown_found(1, &Found { start: 1500, end: 1524, forward: false }, &c);
+        assert_eq!(minus.bases, Some(bios_core::seq::revcomp(&top)), "a minus-strand hit carries its own bases, 5' to 3'");
+        assert!(!minus.forward && minus.directional);
+    }
+
+    #[test]
+    fn each_plasmid_keeps_its_own_zoom() {
+        // One shared key made zooming one plasmid zoom every other the same way.
+        assert_ne!(zoom_id("pUC19"), zoom_id("pBR322"));
+        assert_ne!(anchor_id("pUC19"), anchor_id("pBR322"));
+        assert_eq!(zoom_id("pUC19"), zoom_id("pUC19"));
+    }
 
     #[test]
     fn a_name_reads_with_spaces_where_the_file_has_underscores() {

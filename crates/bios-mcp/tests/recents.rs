@@ -219,3 +219,16 @@ fn leaving_out_the_project_means_the_one_open_in_the_window() {
     assert_eq!(body(&replies[0])["window_open"], false);
     assert!(error(&replies[1]).contains("say which project"));
 }
+
+#[test]
+fn creating_a_project_where_a_folder_already_is_opens_that_folder_as_it_is() {
+    let (_dir, file, plain) = place();
+    let parent = plain.parent().unwrap().display().to_string();
+    let name = plain.file_name().unwrap().to_string_lossy().into_owned();
+    let replies = calls(&file, &[("create_project", json!({"name": name, "path": parent})), ("list_plasmids", json!({"project": name}))]);
+    let made = body(&replies[0]);
+    assert_eq!(made["opened_existing"], true);
+    assert_eq!(made["path"], plain.canonicalize().unwrap().display().to_string());
+    assert!(!plain.join("bios.json").exists(), "opening writes nothing");
+    assert!(body(&replies[1]).to_string().contains("wrap_demo"));
+}

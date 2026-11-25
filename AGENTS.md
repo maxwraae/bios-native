@@ -69,8 +69,15 @@ Bios is not an ArtCraft repository, so four rules are met differently. Nothing e
   another product. The clean-room rule applies in full to SnapGene and every other
   product: learn from what they visibly do and from public specifications, never from their code,
   files or artwork.
-- **CI (core rule 11).** There are no workflows yet. Until there are, `cargo xtask ci` on your own
-  machine is the gate, and rule 7 applies: report what you ran.
+- **CI (core rule 11).** Bios's workflows are its own, in `.github/workflows/`, and do not call
+  `storytold/craft-common-actions`: Bios is not an ArtCraft repository, it is installed from
+  source and from its own releases by people outside the org, and its release jobs are particular
+  to it — one unsigned disk image and one unsigned portable zip, no notarisation, no
+  code-signing. They follow the same step pattern as craft-libs' own workflows (harden-runner,
+  pinned actions, a cache saved only from `main`). `cargo xtask ci` is still the gate and is what
+  the workflows run; rule 7 still applies, so say what you ran. The checks run on a Mac **and on
+  Windows**, because Bios is published for both and a PC is the one machine the people who work
+  on it do not have.
 - **Contributor credits (Rust rule 6).** There is no `contributors/` folder yet.
 
 ## What Bios is for

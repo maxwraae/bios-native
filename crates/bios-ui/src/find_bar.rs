@@ -6,15 +6,18 @@
 //! (`findMatches`, the Exact path 67-132) and the `.find-bar` rules in `styles.css` 8399-8458.
 //!
 //! Alignment is the DEFAULT, as on the web: an imperfect fit is the normal case a researcher is
-//! looking at, and an exact-match tool answers "no" to most real questions. Its landings are drawn
-//! on the rows with their captions, so the bar carries only the tally and Keep; Exact draws
-//! nothing, so the current hit's label stands under the bar.
+//! looking at, and an exact-match tool answers "no" to most real questions.
+//!
+//! Where native differs from the web (PARITY.md): what the current hit is — its length and strand,
+//! or how the alignment fits — is said on a second line INSIDE the bar, in both modes, where the
+//! eye already is while typing and stepping. The web captions each alignment on the rows and puts
+//! Exact's label in a pill under the bar; both covered the bases and the map they described.
 
 use bios_core::Construct;
 use bios_core::enzymes::{find_cut_sites, get_enzyme};
 use bios_core::search::{SearchOptions, find_binding_sites};
 use bios_core::seq::{clean_seq, revcomp};
-use egui::{Align2, CornerRadius, Id, Key, Margin, Pos2, Rect, Stroke, StrokeKind, Ui, pos2, vec2};
+use egui::{Align2, CornerRadius, Id, Key, Margin, Rect, Stroke, StrokeKind, Ui, pos2, vec2};
 
 use crate::icon;
 use crate::lucide;
@@ -105,7 +108,7 @@ pub fn is_enzyme(query: &str) -> bool {
     get_enzyme(query.trim()).is_some()
 }
 
-/// Whether the selection's read-out stands down because Find's caption already describes this
+/// Whether the selection's read-out stands down because the Find bar already describes this
 /// exact selection (`editor/readoutYield.ts`). Not "Find is open": a selection dragged somewhere
 /// else while searching is the person's own question and keeps its numbers. Spans are compared
 /// exactly, as stored (an end before the start wraps), because stepping to a hit selects exactly
@@ -179,6 +182,8 @@ pub enum Outcome {
 const INPUT_W: f32 = 220.0;
 const COUNT_W: f32 = 56.0;
 const HEIGHT: f32 = 44.0;
+/// The second line, saying what the current hit is.
+const DETAIL_H: f32 = 22.0;
 
 /// Draws the bar top-centre of `pane`, under its head band, and says what the person did.
 pub fn show(ui: &mut Ui, pane: Rect, bar: &mut FindBar, matches: &[FindMatch], aligning: &Aligning) -> Option<Outcome> {
@@ -199,7 +204,9 @@ pub fn show(ui: &mut Ui, pane: Rect, bar: &mut FindBar, matches: &[FindMatch], a
     let keep_button = Button::label("Keep", Material::Glass);
     let keep_w = if keep { keep_button.width(ui) + 6.0 } else { 0.0 };
     let width = 8.0 + 14.0 + 6.0 + INPUT_W + 6.0 + count_w + 6.0 + keep_w + group_w + 3.0 * (6.0 + 34.0) + 8.0;
-    let rect = Rect::from_min_size(pos2(pane.center().x - width / 2.0, pane.top() + theme::HEAD_H + 8.0), vec2(width, HEIGHT));
+    let detail = matches.get(bar.index).map(|m| m.label.as_str()).filter(|l| !l.is_empty());
+    let height = HEIGHT + if detail.is_some() { DETAIL_H } else { 0.0 };
+    let rect = Rect::from_min_size(pos2(pane.center().x - width / 2.0, pane.top() + theme::HEAD_H + 8.0), vec2(width, height));
     let layer = egui::LayerId::new(egui::Order::Foreground, Id::unique("find-bar"));
     let mut ui = ui.new_child(egui::UiBuilder::new().layer_id(layer).max_rect(rect.expand(40.0)));
     let painter = ui.painter().clone();
@@ -207,7 +214,7 @@ pub fn show(ui: &mut Ui, pane: Rect, bar: &mut FindBar, matches: &[FindMatch], a
     primitives::shadow(&painter, rect, HEIGHT / 2.0, theme::SHADOW_CELL);
     painter.rect_filled(rect, CornerRadius::same(22), theme::CELL);
     painter.rect_stroke(rect, CornerRadius::same(22), Stroke::new(1.0, theme::HAIRLINE), StrokeKind::Outside);
-    let mid = rect.center().y;
+    let mid = rect.top() + HEIGHT / 2.0;
     let mut x = rect.left() + 8.0;
     icon::paint(&painter, pos2(x + 7.0, mid), 14.0, lucide::SEARCH, theme::MUTED);
     x += 14.0 + 6.0;
@@ -271,22 +278,16 @@ pub fn show(ui: &mut Ui, pane: Rect, bar: &mut FindBar, matches: &[FindMatch], a
     if ui.input(|i| i.key_pressed(Key::Escape)) {
         outcome = Some(Outcome::Close);
     }
-    // What this landing is, under the bar: the length and the strand. Alignment draws every landing
-    // on the rows and captions it there, so it puts nothing here.
-    if let Some(current) = matches.get(bar.index).filter(|_| !bar.aligns()) {
-        caption(&painter, &ui, pos2(rect.center().x, rect.bottom() + 6.0), &current.label);
+    // What the current landing is, on the bar's second line, under the field it answers.
+    if let Some(detail) = detail {
+        let line =
+            Rect::from_min_max(pos2(rect.left() + 8.0 + 14.0 + 6.0, rect.top() + HEIGHT - 6.0), pos2(rect.right() - 22.0, rect.bottom() - 6.0));
+        let font = theme::mono(11.0);
+        let shown = crate::session_nav::clip(&ui, detail, &font, line.width());
+        let r = painter.text(line.left_center(), Align2::LEFT_CENTER, shown, font, theme::MUTED);
+        ui.interact(r, Id::unique("find-bar-detail"), egui::Sense::hover()).on_hover_text(detail);
     }
     outcome
-}
-
-/// `.readout-pill.find-bar-caption`: the selection pill's face, under the bar.
-fn caption(painter: &egui::Painter, ui: &Ui, top_center: Pos2, label: &str) {
-    let font = theme::mono(12.5);
-    let w = (text_width(ui, label, font.clone()) + 32.0).min(520.0);
-    let r = Rect::from_min_size(pos2(top_center.x - w / 2.0, top_center.y), vec2(w, 34.0));
-    painter.rect_filled(r, CornerRadius::same(17), theme::CELL);
-    primitives::glass(painter, r, 17.0);
-    painter.with_clip_rect(r.shrink2(vec2(16.0, 0.0))).text(r.center(), Align2::CENTER_CENTER, label, font, theme::INK);
 }
 
 #[cfg(test)]

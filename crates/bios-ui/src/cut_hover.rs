@@ -9,7 +9,6 @@
 use bios_core::enzymes::get_enzyme;
 use egui::{Align2, Color32, Id, Rect, pos2, vec2};
 
-use crate::primitives::text_width;
 use crate::theme;
 
 /// The name, the recognition site with `^` at the scission when it falls inside it, and what the
@@ -43,17 +42,21 @@ pub fn describe(enzyme: &str) -> Option<Vec<String>> {
 }
 
 /// Draws the pill by the cut's box on screen: above it, or below when there is no room up top.
+///
+/// Find's hits use the same card (`probe — would prime · 107/107 nt aligned · …`), so it is as
+/// wide as what it says, up to the window, and kept inside it.
 pub fn show(ctx: &egui::Context, parts: &[String], cut: Rect) {
     let screen = ctx.content_rect();
     let above = cut.top() - screen.top() > 130.0;
-    let left = (cut.left() - 10.0).min(screen.right() - 348.0).max(screen.left() + 8.0);
     let font = theme::mono(12.0);
     let bold = theme::mono_weight(12.0, theme::Weight::Semibold);
+    let measure = |text: &str, font: egui::FontId| ctx.fonts_mut(|f| f.layout_no_wrap(text.to_string(), font, Color32::WHITE).size().x);
+    let inner: f32 = parts.iter().enumerate().map(|(i, p)| measure(p, if i == 0 { bold.clone() } else { font.clone() })).sum::<f32>()
+        + (parts.len().saturating_sub(1)) as f32 * (7.0 + measure("·", font.clone()) + 7.0);
+    let size = vec2((inner + 28.0).min(screen.width() - 16.0).max(0.0), 30.0);
+    let left = (cut.left() - 10.0).min(screen.right() - 8.0 - size.x).max(screen.left() + 8.0);
     let area = egui::Area::new(Id::unique("cut-hover")).order(egui::Order::Tooltip).interactable(false).fade_in(false);
     area.fixed_pos(pos2(left, if above { cut.top() - 8.0 - 30.0 } else { cut.bottom() + 8.0 })).show(ctx, |ui| {
-        let inner: f32 = parts.iter().enumerate().map(|(i, p)| text_width(ui, p, if i == 0 { bold.clone() } else { font.clone() })).sum::<f32>()
-            + (parts.len().saturating_sub(1)) as f32 * (7.0 + text_width(ui, "·", font.clone()) + 7.0);
-        let size = vec2((inner + 28.0).min(340.0), 30.0);
         let (r, _) = ui.allocate_exact_size(size, egui::Sense::hover());
         let painter = ui.painter();
         crate::primitives::shadow(

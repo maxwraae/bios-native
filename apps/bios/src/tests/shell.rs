@@ -111,11 +111,11 @@ fn each_plasmid_opened_gets_a_tab_and_closing_the_front_one_brings_the_next() {
     app.command(menus::CLOSE_TAB);
     assert_eq!(front(&app), "wrap_demo");
     app.command(menus::CLOSE_TAB);
-    assert!(app.opened.is_none() && app.tabs.is_empty());
+    assert!(app.opened.is_none() && app.ed.tabs.is_empty());
     // A plasmid deleted elsewhere loses its tab.
     app.open_construct(&gfp);
     app.run("delete_plasmid", serde_json::json!({ "plasmid": gfp.as_str(), "confirm": true }));
-    assert!(app.tabs.is_empty());
+    assert!(app.ed.tabs.is_empty());
 }
 
 #[test]
