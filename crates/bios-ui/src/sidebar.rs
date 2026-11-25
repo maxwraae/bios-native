@@ -270,7 +270,7 @@ pub fn edge(ui: &mut egui::Ui, rect: Rect) -> Option<(f32, bool)> {
 mod tests {
     use egui::{Event, PointerButton, Pos2, Rect, pos2, vec2};
 
-    use super::{Head, Place, Pressed, head};
+    use super::{Head, Place, Pressed, TOGGLE_X, head};
 
     /// Clicks at `at` over a few frames of the head in a 200-wide sidebar, and says what was pressed.
     fn click(place: Place, at: Pos2) -> Vec<Pressed> {
@@ -292,10 +292,14 @@ mod tests {
     }
 
     #[test]
-    fn the_first_row_holds_the_toggle_right_of_the_traffic_lights() {
-        assert_eq!(click(Place::Edit, pos2(100.0, 19.0)), [Pressed::TogglePanel]);
-        // Where the traffic lights sit, nothing of the sidebar's takes the click.
-        assert!(click(Place::Edit, pos2(45.0, 19.0)).is_empty());
+    fn the_first_row_holds_the_toggle_clear_of_the_window_s_own_buttons() {
+        assert_eq!(click(Place::Edit, pos2(TOGGLE_X, 19.0)), [Pressed::TogglePanel]);
+        // On a Mac the traffic lights sit to the toggle's left, and nothing of the sidebar's
+        // takes a click there. Windows draws its buttons in a title bar of its own, above the
+        // head, so the toggle starts at the edge and there is no gutter to keep clear.
+        if cfg!(target_os = "macos") {
+            assert!(click(Place::Edit, pos2(45.0, 19.0)).is_empty());
+        }
     }
 
     #[test]
